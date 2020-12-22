@@ -1,0 +1,775 @@
+---
+title: "TP1 Séries chronologiques"
+author: Mamadou Lamine DIAMBAN
+date: "08 Octobre 2019"
+fontsize: 11pt
+geometry: margin=1in
+lang: fr
+fontfamily: times
+output:
+    pdf_document:
+        toc: false
+        fig_height: 3.5
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, echo = FALSE)
+```
+
+```{r}
+library(pander)
+library(kableExtra)
+library(tidyverse)
+library(ggfortify)
+library(huxtable)
+theme_set(theme_minimal())
+```
+
+Ce rapport rentre dans le cadre de l'UE Séries temporelles du Master 2 Statistique et Science des Données à l'UGA qui est ici soumis sous forme de travaux pratiques.   
+Elle comprend 7 parties:  
+-- Les deux premières parties **Etude du taux de chômage en France à partir de 1983** et **Etude du taux d'inflation en France à partir de 1997** visent à se familiariser aux techniques de lissage et à la prévision sur des données de séries temporelles.  
+-- La troisième partie: **Etude d'un marché alimentaire** permet essentiellement la mise en pratique de *dessaisonalisation* d'une série temporelle.  
+-- Enfin les quatre dernières parties s'appuient sur les jeux de données de la bibliothèque `TSA`. Elles nous permettent de voir les tendances de différentes séries chronologiques saisonnières et non stationnaires. Mais aussi de réaliser des régressions linéaires par la méthode des moindres carrés afin de pouvoir adapter le modèle adéquat à une série temporelle donnée.
+
+
+# 1. Taux de chômage à partir de 1983
+```{r}
+chomFr <-
+  ts(
+    c(
+      7.057988, 6.733520, 6.700560, 7.002699, 7.211908, 7.376763,
+      7.468825, 7.585031, 7.697085, 7.816434, 7.911711, 8.000775,
+      8.064867, 8.143540, 8.223059, 8.289314, 8.366925, 8.442037,
+      8.504789, 8.575836, 8.645796, 8.746996, 8.776482, 8.772042,
+      8.733249, 8.705156, 8.687407, 8.670514, 8.663070, 8.695007,
+      8.662207, 8.663757, 8.673493, 8.716040, 8.705256, 8.669623,
+      8.618370, 8.592846, 8.602242, 8.719645, 8.760364, 8.797653,
+      8.896625, 8.943472, 9.003195, 9.177360, 9.224125, 9.237696,
+      9.296533, 9.270948, 9.235532, 9.220791, 9.175486, 9.130575,
+      9.127746, 9.090808, 9.062257, 9.111655, 9.068031, 9.002603,
+      8.980001, 8.905837, 8.845492, 8.893677, 8.843631, 8.791214,
+      8.843362, 8.797692, 8.762468, 8.852478, 8.814245, 8.763941,
+      8.766077, 8.719832, 8.690206, 8.707974, 8.694593, 8.680947,
+      8.671796, 8.662996, 8.659318, 8.666918, 8.654088, 8.627017,
+      8.577332, 8.537145, 8.498078, 8.475987, 8.435319, 8.392315,
+      8.376636, 8.337400, 8.305113, 8.327974, 8.302422, 8.277843,
+      8.294373, 8.292945, 8.314214, 8.405093, 8.456915, 8.516891,
+      8.627041, 8.702259, 8.784612, 8.913297, 8.994979, 9.068874,
+      9.131986, 9.197688, 9.262996, 9.289098, 9.352566, 9.414939,
+      9.435135, 9.500795, 9.571193, 9.623299, 9.693174, 9.758189,
+      9.798860, 9.868127, 9.946824, 10.060542, 10.145066, 10.226431,
+      10.331013, 10.408315, 10.485188, 10.605320, 10.670530, 10.724873,
+      10.794742, 10.813386, 10.807263, 10.794335, 10.756634, 10.712157,
+      10.656949, 10.606725, 10.557636, 10.521882, 10.469411, 10.412596,
+      10.368917, 10.335261, 10.329142, 10.432074, 10.448016, 10.459083,
+      10.546384, 10.565402, 10.598158, 10.735129, 10.740705, 10.706181,
+      10.666520, 10.655865, 10.710763, 10.864186, 10.931324, 10.945532,
+      10.908944, 10.879864, 10.860403, 10.835213, 10.839984, 10.859513,
+      10.906194, 10.920135, 10.913861, 10.958422, 10.928763, 10.896810,
+      10.929163, 10.894663, 10.860469, 10.877285, 10.829234, 10.767172,
+      10.797485, 10.732766, 10.680637, 10.731926, 10.692534, 10.654008,
+      10.668281, 10.643793, 10.632782, 10.675406, 10.686594, 10.706702,
+      10.738053, 10.751198, 10.748493, 10.757368, 10.701825, 10.609456,
+      10.518205, 10.382733, 10.241381, 10.148736, 9.996552, 9.840196,
+      9.762011, 9.609630, 9.466991, 9.387450, 9.265353, 9.154820,
+      9.072646, 8.978878, 8.890582, 8.837669, 8.762303, 8.694820,
+      8.641830, 8.589628, 8.545217, 8.491801, 8.466830, 8.453499,
+      8.386965, 8.393212, 8.407471, 8.356800, 8.360806, 8.346952,
+      8.215746, 8.198662, 8.196265, 8.172658, 8.193312, 8.222438,
+      8.287651, 8.316993, 8.338173, 8.306142, 8.386135, 8.532557,
+      8.282422, 8.270922, 8.309042, 8.395540, 8.405621, 8.457047,
+      8.463153, 8.433128, 8.596777, 8.705688, 8.762176, 8.861591,
+      8.824918, 8.844228, 8.844090, 8.810277, 8.803273, 8.791410,
+      8.781434, 8.799469, 8.838506, 8.903042, 8.935368, 8.864185,
+      8.728942, 8.676546, 8.709010, 8.796933, 8.870115, 8.880334,
+      8.887275, 8.896401, 8.957200, 9.033823, 9.063267, 9.079424,
+      9.076654, 9.074670, 9.058259, 9.020698, 8.943746, 8.916741,
+      8.908445, 8.854133, 8.680756, 8.540260, 8.424086, 8.416588,
+      8.472974, 8.447880, 8.342692, 8.193583, 8.084005, 7.978121,
+      8.015513, 7.952220, 7.813924, 7.614700, 7.453600, 7.358514,
+      7.323491, 7.244097, 7.254638, 7.277016, 7.279477, 7.345046,
+      7.400949, 7.487004, 7.530850, 7.595208, 7.774485, 7.999468,
+      8.279829, 8.559220, 8.794923, 8.967922, 9.092257, 9.101498,
+      9.105335, 9.180555, 9.294502, 9.496363, 9.548208, 9.488986,
+      9.283213, 9.304903, 9.337725, 9.367344, 9.366060, 9.281472,
+      9.184071, 9.187058, 9.193217, 9.178062, 9.202185, 9.200462,
+      9.174095, 9.150661, 9.084627, 9.079145, 9.060255, 9.125197,
+      9.189714, 9.224832, 9.260126, 9.334710, 9.375131, 9.431739,
+      9.481364, 9.507425, 9.563355, 9.621523, 9.689056, 9.696123,
+      9.716772, 9.764832, 9.885624, 10.027887, 10.119683, 10.193013,
+      10.302775, 10.327229, 10.375885, 10.413681, 10.367638, 10.382175,
+      10.345364, 10.230679, 10.361921, 10.166556, 10.175685, 10.194736,
+      10.230308, 10.260954, 10.245658, 10.165841, 10.152836, 10.191782,
+      10.246089, 10.273419, 10.401900, 10.385366, 10.456702, 10.414458,
+      10.354428, 10.349874, 10.430243, 10.503941, 10.572256, 10.525439,
+      10.448997, 10.391960, 10.324972, 10.237733, 10.183132, 10.154042,
+      10.167215, 10.241538, 10.151924, 10.124891, 10.078218, 10.037009,
+      9.920558, 9.949304, 9.971719, 10.072764, 10.042838, 9.929200,
+      9.709130, 9.573080, 9.536602, 9.487259, 9.482994, 9.493862,
+      9.605075, 9.566623, 9.377979, 9.164506, 9.032646, 9.053765,
+      9.204970, 9.237245, 9.208980, 9.154335, 9.097992, 9.038409,
+      9.030999, 9.036649, 9.003757, 8.967468, 8.915634, 8.876042,
+      8.755343, 8.648560, 8.596334, 8.538569, 8.519001, 8.531356,
+      8.523713
+    ),
+    start = 1983,
+    frequency = 12
+  )
+```
+
+
+
+## a) Tracer le graphique de cette série
+```{r}
+autoplot(chomFr, fill = "#00AFBB", size = 1) +
+  labs(
+    title = "Taux de chômage en France",
+    subtitle = "1983-2019",
+    y = "Taux de chômage", x = "Temps"
+  )
+```
+
+
+Ce chronogramme montre l'existence d'une tendance de long terme qui se déploie sur des périodes plus longues et d'un cycle lié à la politique économique. Ainsi, il apparaît que la hausse importante du taux de chômage dans les années 1980 résulte du choc pétrolier de cette époque qui s'en est suivi d'une politique monétaire désinflationniste. De même la hausse de la première moitié des années 1990 et de la fin des années 2000 prend place dans un contexte conjoncturel défavorable.
+
+
+## Lissez cette série en y ajustant une moyenne mobile de rayon r = 2, avec des poids égaux. 
+
+Etant donné que la moyenne de plusieurs observations est plus stable qu'une observation individuelle. Nous avons créé une nouvelle série temporelle basée sur la moyenne mobile. Celle-ci qui permet d'éliminer d'éventuelles fluctuations contenues dans la série d'origine.  
+Cette nouvelle série est alors:
+$$\bar{x}_t = \frac{\sum_{i = -r}^r c_ix_{t+i}}{\sum_{i = -r}^rc_i}$$
+
+```{r}
+maAL <- function(x, r, w = rep(1, 2 * r + 1)) {
+  n <- length(x)
+  xliss <- rep(NA, n)
+  x <- c(rep(NA, r), x, rep(NA, r))
+  for (i in 1:n) {
+    xliss[i] <- weighted.mean(x[i:(i + 2 * r)],
+      w = w, na.rm = TRUE
+    )
+  }
+  return(xliss)
+}
+```
+
+```{r}
+chomFr.lisse1 <- ts(maAL(chomFr, 2, rep(1, 5)),
+  start = 1983, frequency = 12
+)
+
+chomFr.equipo <- ts.union(chomFr, chomFr.lisse1)
+
+autoplot(chomFr.equipo, facets = F, size = 1) +
+  scale_color_manual(values = c("#00AFBB", "#FC4E07")) +
+  labs(
+    title = "Taux de chômage en France: 1983-2019",
+    subtitle = "Lissage avec des poids égaux",
+    y = "Taux de chômage", x = "Temps"
+  )
+```
+
+Il y'a peu de différences entre le lissage à poids équiprobable et la série d'origine.
+
+
+## c) Lissez la même série en y ajustant une moyenne mobile de rayon r = 2, avec poids binomiaux. 
+```{r}
+chomFr.lisse2 <- ts(maAL(chomFr, 2, c(1, 4, 6, 4, 1)),
+  start = 1983, frequency = 12
+)
+
+chomFr.binomi <- ts.union(chomFr, chomFr.lisse2)
+
+autoplot(chomFr.binomi, facets = F, size = 1) +
+  scale_color_manual(values = c("#00AFBB", "#FC4E07")) +
+  labs(
+    title = "Taux de chômage en France: 1983-2019",
+    subtitle = "Lissage avec des poids binomiaux",
+    y = "Taux de chômage", x = "Temps"
+  )
+```
+
+De même, la différence entre le lissage à poids binomiaux et la série d'origine n'est guère notable. Les veleurs entre les séries sont presque égales pour un temps donné.
+
+##  d) Appliquez à cette série un lissage exponentiel avec alpha = 2/3
+```{r}
+expSmoothAL <- function(z, alpha) {
+  T <- length(z)
+  S <- rep(NA, T)
+  z.pred <- rep(NA, T)
+  err.pred <- rep(NA, T)
+  S0 <- mean(z)
+  S[1] <- (1 - alpha) * z[1] + alpha * S0
+  err.pred[1] <- z[1] - mean(z)
+  z.pred[1] <- mean(z)
+  for (t in 2:T) {
+    S[t] <- (1 - alpha) * z[t] + alpha * S[t - 1]
+    err.pred[t] <- z[t] - S[t - 1]
+    z.pred[t] <- S[t - 1]
+  }
+  return(list(
+    tableau = cbind(
+      t = 0:T,
+      z = c(NA, z),
+      sm = c(S0, S),
+      pred = c(NA, z.pred),
+      err = c(NA, err.pred)
+    ),
+    SSE = sum(err.pred[-1]^2)
+  ))
+}
+```
+
+Afin de réaliser un lissage exponentiel, nous nous sommes d'abord intéressé à l'accroissement relatif du taux de chômage en France qui est donnée par:
+$$x_t = \frac{I_{t+1} - I_t}{I_t}$$
+
+```{r}
+chomFr.z <- ts(diff(chomFr) / chomFr * 100,
+  start = 1983, frequency = 12
+)
+
+bestSmooth <- expSmoothAL(chomFr.z, 2 / 3)
+
+tableau <- bestSmooth[[1]]
+
+pred <- ts(c(tableau[-1, "pred"], tableau[nrow(tableau), "sm"]),
+  start = c(1983, 2), frequency = 12
+)
+
+chomFr.expo <- ts.union(chomFr.z, pred)
+
+autoplot(chomFr.expo, facets = FALSE) +
+  scale_color_manual(values = c("#00AFBB", "#FC4E07")) +
+  labs(
+    title = "Taux d'accroissement du chômage en France: 1983-2019",
+    subtitle = "Lissage exponentiel avec alpha = 2/3",
+    y = "Taux d'accroissement du chômage", x = "Temps"
+  )
+```
+
+
+Parmi les différents lissages utilisés, le lissage dit "exponentiel" paraît plus adapté. En effet grâce à la différenciation utilisée sur le lissage exponentiel, le problème de stabilité de la tendance noté sur la figure 1 s'annule et laisse place à une série plus "stationnaire" où l'on voit l'écart entre les deux courbes qui met en évidence l'existence d'erreurs de mesure de l'ordre d'environ 3 points en 2003 et de 1 point en 2010. 
+
+
+## e) Trouvez, au dixième près, la valeur de alpha minimisant la SEQ. 
+```{r}
+somme.quadra <- data.frame()
+for (a in seq(.6, .95, .01)) {
+  bestSmooth <- expSmoothAL(chomFr.z, a)
+  somme.quadra <- rbind(somme.quadra, c(bestSmooth[[2]], a))
+}
+colnames(somme.quadra) <- c("seq", "alpha")
+pander(somme.quadra[which.min(somme.quadra$seq), ])
+```
+
+En prenant un $alpha \in \{0.6, 0.95\}$ avec un pas de 0.1, nous constatons que la somme des erreurs quadratique $SEQ({\alpha}) = \sum_{t = 1}^{n} (z_t - \hat{z_t})^2 = 227.1$  est minimale lorsque $\alpha = 0.6$
+
+
+## f) Donnez la prévision pour août 2019. 
+```{r}
+bestSmooth <- expSmoothAL(chomFr, .6)
+
+tableau <- bestSmooth[[1]]
+pred <- ts(c(tableau[-1, "pred"], tableau[nrow(tableau), "sm"]),
+  start = c(1983, 2), frequency = 12
+)
+kable(pred[length(pred) - 1],
+  caption = "Prédiction Août", booktabs = TRUE
+) %>%
+  kable_styling(latex_options = c("striped", "hold_position", "condensed", "bordered"))
+```
+
+La prévision du mois d'Août est de 8.56. Ce qui correspond à une baisse de 0.48% par rapport à la précédente année.
+
+# 2. Taux d'inflation en France à partir de 1997
+
+```{r}
+inflaFr <-
+  ts(
+    c(
+      1.8, 1.7, 1.1, 1.0, 0.9, 1.0, 1.1, 1.6, 1.4, 1.1, 1.4, 1.2,
+      0.6, 0.7, 0.8, 1.0, 0.9, 1.1, 0.8, 0.7, 0.5, 0.5, 0.2, 0.3,
+      0.3, 0.3, 0.4, 0.5, 0.4, 0.3, 0.4, 0.5, 0.6, 0.8, 0.9, 1.3,
+      1.7, 1.4, 1.6, 1.3, 1.5, 1.8, 1.9, 2.0, 2.3, 2.1, 2.3, 1.8,
+      1.3, 1.5, 1.5, 2.0, 2.4, 2.2, 2.2, 2.0, 1.6, 1.8, 1.3, 1.5,
+      2.4, 2.2, 2.2, 2.1, 1.6, 1.4, 1.6, 1.8, 1.8, 1.9, 2.1, 2.2,
+      1.9, 2.6, 2.5, 2.0, 1.8, 2.0, 2.0, 2.0, 2.2, 2.3, 2.5, 2.4,
+      2.2, 1.9, 1.9, 2.4, 2.8, 2.7, 2.6, 2.6, 2.2, 2.3, 2.2, 2.2,
+      1.6, 1.9, 2.1, 2.0, 1.7, 1.8, 1.8, 2.0, 2.3, 2.0, 1.8, 1.8,
+      2.2, 2.0, 1.7, 2.0, 2.3, 2.2, 2.2, 2.1, 1.5, 1.2, 1.6, 1.7,
+      1.4, 1.2, 1.2, 1.3, 1.2, 1.3, 1.2, 1.3, 1.6, 2.1, 2.6, 2.8,
+      3.2, 3.2, 3.5, 3.4, 3.7, 4.0, 4.0, 3.5, 3.4, 3.0, 1.9, 1.2,
+      0.8, 1.0, 0.4, 0.1, -0.3, -0.6, -0.8, -0.2, -0.4, -0.2, 0.5, 1.0,
+      1.2, 1.4, 1.7, 1.9, 1.9, 1.7, 1.9, 1.6, 1.8, 1.8, 1.8, 2.0,
+      2.0, 1.8, 2.2, 2.2, 2.2, 2.3, 2.1, 2.4, 2.4, 2.5, 2.7, 2.7,
+      2.6, 2.5, 2.6, 2.4, 2.3, 2.3, 2.2, 2.4, 2.2, 2.1, 1.6, 1.5,
+      1.4, 1.2, 1.1, 0.8, 0.9, 1.0, 1.2, 1.0, 1.0, 0.7, 0.8, 0.8,
+      0.8, 1.1, 0.8, 0.8, 0.8, 0.6, 0.6, 0.5, 0.4, 0.5, 0.4, 0.1,
+      -0.4, -0.3, 0.0, 0.1, 0.3, 0.3, 0.2, 0.1, 0.1, 0.2, 0.1, 0.3,
+      0.3, -0.1, -0.1, -0.1, 0.1, 0.3, 0.4, 0.4, 0.5, 0.5, 0.7, 0.8,
+      1.6, 1.4, 1.4, 1.4, 0.9, 0.8, 0.8, 1.0, 1.1, 1.2, 1.2, 1.2,
+      1.5, 1.3, 1.7, 1.8, 2.3, 2.3, 2.6, 2.6, 2.5, 2.5, 2.2, 1.9,
+      1.4, 1.6, 1.3, 1.5, 1.1, 1.4, 1.3, 1.3
+    ),
+    start = 1997,
+    frequency = 12
+  )
+```
+
+## a) Tracer le graphique de cette série
+```{r}
+autoplot(inflaFr, fill = "#00AFBB", size = 1) +
+  labs(
+    title = "Taux d'inflation en France",
+    subtitle = "1997-2019",
+    y = "Taux d'inflation", x = "Temps"
+  )
+```
+
+## b) Lissez cette série en y ajustant une moyenne mobile de rayon r = 2, avec des poids égaux.
+
+Regardons maintenant si le choix des poids affecte les resultats obtenus (on sait qu'en theorie cela doit etre le cas).  
+Examinons d'abord le lissage d'une moyenne mobile avec des poids égaux.
+
+```{r}
+inflaFr.lisse1 <- ts(maAL(inflaFr, 2, rep(1, 5)),
+  start = 1997, frequency = 12
+)
+
+inflaFr.equipo <- ts.union(inflaFr, inflaFr.lisse1)
+
+autoplot(inflaFr.equipo, facets = F, size = 1) +
+  scale_color_manual(values = c("#00AFBB", "#FC4E07")) +
+  labs(
+    title = "Taux d'inflation en France: 1997-2019",
+    subtitle = "Lissage avec des poids égaux",
+    y = "Taux d'inflation", x = "Temps"
+  )
+```
+
+Au niveau du graphique, le resultat obtenu sur le lissage avec équipondération est plus lisse que celui avec les poids standars notamment entre les années 2000 et 2008.
+
+
+
+## c) Lissez la même série en y ajustant une moyenne mobile de rayon r = 2, avec poids binomiaux. 
+```{r}
+inflaFr.lisse2 <- ts(maAL(inflaFr, 2, c(1, 4, 6, 4, 1)),
+  start = 1997, frequency = 12
+)
+
+inflaFr.binom <- ts.union(inflaFr, inflaFr.lisse2)
+
+autoplot(inflaFr.binom, facets = F, size = 1) +
+  scale_color_manual(values = c("#00AFBB", "#FC4E07")) +
+  labs(
+    title = "Taux d'inflation en France: 1997-2019",
+    subtitle = "Lissage avec des poids binomiaux",
+    y = "Taux d'inflation", x = "Temps"
+  )
+```
+
+On constate la même remarque que sur le graphique précédent.
+
+##  d) Appliquez à cette série un lissage exponentiel avec alpha = 2/3
+```{r}
+bestSmooth <- expSmoothAL(inflaFr, 2 / 3)
+
+tableau <- bestSmooth[[1]]
+
+pred <- ts(c(tableau[-1, "pred"], tableau[nrow(tableau), "sm"]),
+  start = c(1997, 2), frequency = 12
+)
+
+inflaFr.expo <- ts.union(inflaFr, pred)
+
+autoplot(inflaFr.expo, facets = F, size = 1) +
+  scale_color_manual(values = c("#00AFBB", "#FC4E07")) +
+  labs(
+    title = "Taux d'inflation en France: 1997-2019",
+    subtitle = "Lissage avec des poids binomiaux",
+    y = "Taux d'inflation", x = "Temps"
+  )
+```
+
+Comme constaté sur les données du taux de chômage en France, le lissage exponentiel semble être plus adapté que les deux lissages ci-dessus. On voit une certaine différence entre les observations individuelles et la moyenne mobile.
+
+## e) Trouvez, au dixième près, la valeur de alpha minimisant la SEQ. 
+```{r}
+somme.quadra <- data.frame()
+
+for (a in seq(.6, .95, .01)) {
+  bestSmooth <- expSmoothAL(inflaFr, a)
+  somme.quadra <- rbind(somme.quadra, c(bestSmooth[[2]], a))
+}
+colnames(somme.quadra) <- c("seq", "alpha")
+pander(somme.quadra[which.min(somme.quadra$seq), ])
+```
+
+En prenant un $alpha \in \{0.6, 0.95\}$ avec un pas de 0.1, nous constatons que la somme des erreurs quadratique $SEQ({\alpha}) = \sum_{t = 1}^{n} (z_t - \hat{z_t})^2 = 38.93$  est minimale lorsque $\alpha = 0.6$
+
+
+## f) Donnez la prévision pour août 2019. 
+```{r}
+bestSmooth <- expSmoothAL(inflaFr, .6)
+
+tableau <- bestSmooth[[1]]
+pred <- ts(c(tableau[-1, "pred"], tableau[nrow(tableau), "sm"]),
+  start = c(1983, 2), frequency = 12
+)
+kable(pred[length(pred) - 1],
+  caption = "Prédiction Août", booktabs = TRUE
+) %>%
+  kable_styling(latex_options = c("striped", "hold_position", "condensed", "bordered"))
+```
+
+La prévision du mois d'Août est de 1.35.
+
+\newpage
+# 3. Marché d'alimentation
+
+```{r}
+nbClients <- matrix(
+  data = c(
+    142, 89, 95, 176, 316, 338,
+    108, 85, 103, 178, 330, 320,
+    112, 77, 86, 158, 352, 307,
+    97, 82, 92, 196, 308, 335,
+    130, 70, 102, rep(NA, 3)
+  ),
+  ncol = 6, byrow = TRUE,
+  dimnames = list(1:5, c("Lundi", "Mardi", "Merc", "Jeudi", "Vend", "Same"))
+)
+```
+
+
+## (a) En ne considérant que les jours où le commerce est ouvert, déterminez les moyennes xj correspondant à chacun de ces 6 jours.
+```{r}
+mu <- apply(nbClients, 2, function(x) mean(x, na.rm = TRUE))
+kable(mu, caption = "Moyennes de chacun des 6 jours", booktabs = TRUE) %>%
+  kable_styling(latex_options = c("striped", "hold_position", "condensed", "bordered"))
+```
+
+On remarque que les ventes sont deux fois plus importantes en fin de semaine qu'en milieu de semaine.
+
+
+## (b) Quelle est la moyenne générale s'appliquant aux jours ouvrables
+
+```{r}
+nbClients.mu <- mean(nbClients, na.rm = TRUE)
+kable(nbClients.mu, caption = "Moyenne générale", booktabs = TRUE) %>%
+  kable_styling(latex_options = c("striped", "hold_position", "condensed", "bordered"))
+```
+\  
+\  
+
+
+## (c) Quelle est l’effet de phase correspondant à chacun de ces 6 jours?
+
+```{r}
+nbClients <- ts(c(
+  142, 89, 95, 176, 316, 338,
+  108, 85, 103, 178, 330, 320,
+  112, 77, 86, 158, 352, 307,
+  97, 82, 92, 196, 308, 335,
+  130, 70, 102
+),
+start = 1, frequency = 6
+)
+phase <- mu - nbClients.mu
+kable(phase, caption = "Effet de phase", booktabs = TRUE) %>%
+  kable_styling(latex_options = c("striped", "hold_position", "condensed", "bordered"))
+```
+\  
+\  
+
+
+## (d) Désaisonnalisez (selon le jour de la semaine) les 27 données du tableau.
+
+```{r}
+nbClients.de <- rep_len(phase, length(nbClients))
+nbClients.deson <- nbClients - nbClients.de
+
+
+autoplot(nbClients.deson, fill = "#00AFBB", size = 1) +
+  labs(
+    title = "Désaisonnalisation du nombre de Client",
+    y = "Nombre de clients", x = "Jours"
+  )
+```
+
+
+
+\newpage
+
+```{r}
+library(TSA)
+```
+
+
+# 4. Séries hours
+La série **hours** donne la moyenne mensuelle des heures travaillées par semaine dans le secteur manufacturier des États-Unis pour juillet 1982 à juin 1987. 
+```{r}
+data(hours)
+```
+
+## a) Tracer et interpréter le graphique de cette série temporelle.
+```{r}
+autoplot(hours, fill = "#00AFBB", size = 1) +
+  labs(
+    title = "Heures travaillées par semaine",
+    subtitle = "Secteur Manifacturier aux USA",
+    y = "Nombre d'heures", x = "Times"
+  )
+```
+
+Ce graphique montre la présence d'une série temporelle avec une tendance croissante non stationnaire. On note une augmentation de plus de 2 points entre le début et la fin des années 1983. Cette augmentation reste plutôt stable jusqu'à la fin des années 1984 où l'on observe une décroissance de 1.5 points. S'en suit à la fin des années 1985 un pic maximal de 41.7 heure par semaine puis une stabilité du nombre d'heures par semaine qui tourne autour de 40.5 dans les années suivantes.
+
+
+### b) Tracer et interpréter le graphique de cette série temporelle en identifiant chaque mois
+```{r}
+plot(hours, frame = FALSE)
+points(hours, x = time(hours), pch = as.vector(season(hours)), cex = 0.75)
+abline(v = 1982:1988, lty = 3, col = "blue")
+```
+
+```{r eval=FALSE}
+autoplot(hours, fill = "#00AFBB", size = 1) +
+  geom_point() +
+  labs(
+    title = "Heures travaillées par semaine",
+    subtitle = "Secteur Manifacturier aux USA",
+    y = "Nombre d'heures", x = "Times"
+  )
+sea <- season(hours)
+ggplot(NULL, aes(time(hours), hours)) +
+  geom_line() +
+  geom_point() +
+  geom_text(NULL, aes(as.vector(sea)))
+```
+
+L'identification des mois nous permet de mieux voir la saisonnalité du chronogramme. En surplus, on peut dire que le nombre d'heures travaillées par semaine dans le secteur manufacturier des Etats-Unis connait une hausse entre Octobre et Décembre puis une baisse plus ou moins significative entre Janvier et Février.
+
+\newpage
+# 5. Série wages
+La série **wages** donne les valeurs mensuelles du salaire horaire moyen (en dollars) pour les travailleurs de l’industrie des vêtements et des produits textiles aux États-Unis de juillet 1981 à juin 1987.
+```{r}
+data(wages)
+```
+
+
+### a) Tracer et interpréter cette série temporelle. 
+```{r}
+autoplot(wages, fill = "#00AFBB", size = 1) +
+  labs(
+    title = "Salire horaire moyen horaire",
+    subtitle = "Industrie des vêtements aux USA",
+    y = "Salaire horaire moyen", x = "Times"
+  )
+```
+
+On note une croissance du salaire horaire moyen, qui s'accélère à la fin de chaque mois d'Août. Ceci nous permet de confirmer la saisonnalité de la série.
+
+
+### b) Utiliser les moindres carrés pour ajuster à une tendance linéaire
+```{r}
+wages.lm <- lm(wages ~ time(wages))
+pander(summary(wages.lm))
+
+wages.fit <- wages.lm$residuals
+```
+
+La p-valueur < $2.2e-16$, le modèle est globalement significatif. Et 97% du salaire moyen est expliqué par le temps.
+
+### c) Tracer et interpréter la série des résidus normalisés obtenus précédemment
+
+```{r eval=FALSE}
+shapiro.test(wages.fit)
+```
+
+
+```{r}
+acf(wages.fit)
+```
+
+L'ACF des résidus montre une décroissance des résidus en fonction du temps. Ce qui confirme la saisonnalité de la série.   
+Mais l'hypothèse de normalité appliquée sur les résidus n'est pas vérifiée: p-value = 0.00474. On en conclue que ce modèle n'est pas adéquat par rapport à la série étudiée.
+
+
+### d) Utiliser les moindres carrés pour estimer une tendance quadratique
+```{r}
+wages.lm2 <- lm(wages ~ time(wages) + I(time(wages)^2))
+pander(summary(wages.lm2))
+
+wages.fit2 <- wages.lm2$residuals
+```
+
+Le modèle est très significatif: p-value: < 2.2e-16 avec un taux d'ajustement plus important que le précédent(98.6%).
+
+### e) Tracer et interpréter la série des résidus normalisés de la partie précédente.
+```{r eval=FALSE}
+shapiro.test(wages.fit2)
+acf(wages.fit2)
+```
+
+
+```{r}
+acf(wages.fit2)
+```
+
+L'ACF nous indique une décroissance rapide du coefficient d'autocorrélation. Les résidus de lag 1 et ceux du lag 2 sont auto-corrélés, puisque le coefficient de corrélation dépasse la borne supérieure de l’intervalle de confiance du coefficient de corrélation de valeur nulle. De plus l'hypothèse de normalité est validée par le teste de shapiro avec un p-value = 0.7622
+
+
+\newpage
+# 6. Séries beersales
+La série beersales donne les ventes mensuelles de bière aux États-Unis (en millions de barils) pour la période allant de janvier 1975 à décembre 1990. 
+```{r}
+data("beersales")
+```
+
+
+### a) Tracer et interpréter le graphique de la série
+```{r}
+autoplot(beersales, fill = "#00AFBB", size = 1) +
+  labs(
+    title = "Ventes mensuelles de bière aux USA",
+    y = "Ventes mensuelles", x = "Times"
+  )
+```
+
+On observe une croissance de la série jusqu'aux années 1981 qui se stabilise par la suite.  
+
+
+### b) Identifier chacun des mois sur le graphique 
+```{r}
+plot(beersales)
+points(beersales, x = time(beersales), pch = as.vector(season(beersales)), cex = 0.75)
+abline(v = 1975:1990, lty = 3, col = "blue")
+```
+
+Il apparaît ainsi une tendance saisonnière assez marquée par une augmentation des ventes de bières pendant l'été et une baisse drastique entre Septembre et Décembre.
+
+
+### c) Utiliser les moindres carrés pour estimer la tendance saisonnière de cette série chronologique.
+```{r}
+beersales.month <- season(beersales)
+beersales.lm <- lm(beersales ~ beersales.month)
+huxreg(summary(beersales.lm))
+
+beersales.fit <- beersales.lm$residuals
+```
+
+Nous obtenons un $R^2 = 71\%$, valeur très élevée et la regression semble très significative. Pour aller plus loin, déssinons l'ACF des résidus. 
+
+```{r eval=FALSE}
+shapiro.test(beersales.fit)
+```
+
+```{r}
+acf(beersales.fit)
+```
+
+Le chronogramme montre de longues séries de valeurs de même signe; typiquement, ce résidu n'est pas stationnaire. 
+Le présupposé variance constante ou au moins de variance obéissant à un mécanisme déterministe ne tient pas. On ne peut pas appliquer les MCO car la relation entre les deux indices n'est pas stable. Et les résidus ne sont pas normalisés, la p-valeur du test de shapiro donne 4.892e-07.    
+
+
+### e) Utiliser les moindres carrés afin d’introduire une tendance saisonnière plus une tendance temporelle quadratique pour cette série
+```{r}
+beersales.lm2 <- lm(beersales ~ beersales.month + I(time(beersales)^2))
+pander(summary(beersales.lm2))
+
+beersales.lm2.fit <- beersales.lm2$residuals
+```
+
+Nous avons un $R^2 = 87\%$ supérieur au $R^2$ du précédent modèle. Ce modèle est donc plus explicatif et est très significatif. Hors mis les mois de Février et de Novembre, tous les autres mois semblent expliquer la vente de bières.
+
+### f) Tracer et interpréter la série chronologique des résidus normalisés
+```{r}
+acf(beersales.lm2.fit)
+```
+
+Même si les coefficients de corrélations semblent baisser sur certains lags, on remarque toujours que les résidus n'ont pas une variance constante. 
+Cet exemple nous a conduit à effectuer une régression ayant une significativité illusoire: un $R^2$ élevé et une régression apparemment très significative, mais qui en réalité débouche sur un résidu non stationnaire.
+
+\newpage
+# 7. Séries winnebago
+La série winnebago contient des ventes unitaires mensuelles de véhicules récréatifs Winnebago de Novembre 1966 à Fèvrier 1972
+```{r}
+data("winnebago")
+```
+
+
+### a) Tracer et interpréter cette série temporelle. 
+```{r}
+autoplot(winnebago, fill = "#00AFBB", size = 1) +
+  labs(
+    title = "Ventes unitaires mensuelles de véhicules",
+    y = "Ventes unitaire mensuelles", x = "Times"
+  )
+```
+
+Le chronogramme montre une augmentation des ventes de véhicules selon le temps. La variabilité de la série augmente avec son niveau. A partir des années 1970, on voit une nette hausse des ventes entre Janvier et Février.
+
+### b) Utiliser les moindres carrés pour estimer une tendance linéaire dans ces données. 
+```{r}
+winnebago.lm <- lm(winnebago ~ time(winnebago))
+pander(summary(winnebago.lm))
+
+winnebago.fit <- winnebago.lm$residuals
+```
+
+
+
+```{r eval=FALSE}
+shapiro.test(winnebago.fit)
+```
+
+```{r}
+par(mfrow = c(1, 2))
+acf(winnebago.fit)
+plot(winnebago.fit, type = "l")
+```
+
+On remarque des autocorrélations très faibles et significatives sur le lag 1 et à moindre mesure sur le lag 2. On peut aussi noter une persistance de l'aspect saisonnier sur l'ACF.
+
+
+### c) Prendre maintenant le logarithme naturel des ventes mensuelles, tracer et interpréter cette série temporelle. 
+```{r}
+plot(log(winnebago), type = "l")
+points(
+  y = log(winnebago),
+  x = time(winnebago),
+  pch = as.vector(season(winnebago))
+)
+```
+
+L'interprétation est presque la même que la précédente série temporelle, sauf qu'avec la transformation logarithmique, on remarque une augmentation plus linéaire des ventes.
+
+### d) Utiliser les moindres carrés pour estimer une tendance linéaire dans ces données. Tracer et interpréter la série des résidus standardisés.
+```{r}
+winnebago.lm.log <- lm(log(winnebago) ~ time(log(winnebago)))
+pander(summary(winnebago.lm.log))
+```
+
+Avec un $R^2 = 80\%$, ce modèle contient plus d'informations explicatifs que le précédent. Et de plus, il est très significatif. 
+
+### e) Utiliser maintenant les moindres carrés pour ajuster une tendance saisonnière plus une tendance linéaire aux ventes enregistrées.
+```{r}
+month <- season(winnebago)
+winnebago.lm.log2 <- lm(log(winnebago) ~ month + time(log(winnebago)))
+pander(summary(winnebago.lm.log2))
+
+winnebago.fit.log2 <- winnebago.lm.log2$residuals
+```
+
+Le modèle très significatif avec p-valeur < 2.2e-16 et un $R^2 = 89\%$. Tous les mois exceptés Octobre, Novembre et Décembre sont très significatifs et expliquent les ventes mensuelles de véhicules. 
+
+### f)  Tracer et interpréter la série chronologique des résidus normalisés.
+
+```{r}
+par(mfrow = c(1, 2))
+acf(winnebago.fit.log2)
+plot(winnebago.fit.log2, type = "l")
+```
+
+Avec la transformation logarithmique, on voit que les coefficients de corrélations  ont légèrement augmentés avec une baisse des lags moins importante. 

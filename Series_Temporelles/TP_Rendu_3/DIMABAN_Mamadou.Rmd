@@ -1,0 +1,827 @@
+---
+title: "Compte Rendu Série Temporelle"
+author: Mamadou Lamine DIAMBAN
+date: "12 Novembre 2019"
+fontsize: 11pt
+geometry: margin=1in
+lang: fr
+fontfamily: times
+output:
+    pdf_document:
+        toc: false
+        fig_height: 3.2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, echo = FALSE)
+```
+
+```{r}
+if(!require(pacman)){
+  install.packages("pacman"); require(pacman)
+}
+
+p_load(TSA, astsa, pander, tidyverse, ggfortify, ggpubr, forecast, kableExtra )
+
+p_load(TSA, astsa, pander, tidyverse, ggfortify, ggpubr, forecast)
+
+theme_set(theme_minimal())
+```
+# La prévision
+
+## 1. Écrire les modèle suivants sous forme d’équation aux différences :
+
+Sachant que $\widetilde{z_t} = z_t - \mu$
+
+$$
+(a) \widetilde{z_t} = (1+\theta_1B+\theta_2B^2)a_t
+$$
+$$
+(a) z_t = a_t+\theta_1a_{t-1}+\theta_2a_{t-2}+\mu
+$$
+$$
+(a) z_{t+1} = a_{t+1}+\theta_1a_{t}+\theta_2a_{t-1}+\mu
+$$
+
+$$
+(b) (1-\phi_1B)(1-B)\widetilde{z_t} = a_t
+$$
+$$
+(b) (1-B-\phi_1B+\phi_1B^2)(z_t-\mu) = a_t
+$$
+$$
+(b) (1-B-\phi_1B+\phi_1B^2)z_t= a_t
+$$
+Car $B\mu = \mu$
+$$
+(b) z_t-(1+\phi_1)z_{t-1}+\phi_1z_{t-2}= a_t
+$$
+$$
+(b) z_t= a_t+(1+\phi_1)z_{t-1}-\phi_1z_{t-2}
+$$
+$$
+(b) z_{t+1}= a_{t+1}+(1+\phi_1)z_{t}-\phi_1z_{t-1}
+$$
+## 2. Utiliser les informations suivantes pour prévoir les valeurs aux horizons l = 1, 2 et 3 pour chacun des modèles de la question 1.
+
+$$
+(a) z_t = a_t+\theta_1a_{t-1}+\theta_2a_{t-2}+\mu
+$$
+avec $(a)n=100;\hat{a_{99}}=1,3;\hat{a_{100}}=-2,6;\hat{\theta_1}=-0,7;\hat{\theta_{2}}=0,5;\hat{\mu}=100$
+
+$$
+(a) \hat{z_t} = a_t-0,7a_{t-1}+0,5a_{t-2}+100
+$$
+$$
+(a) \hat{z_t}(1) = -0,7a_{t}+0,5a_{t-1}+100
+$$
+$$
+(a) \hat{z_t}(1) = -0,7*(-2,6)+0,5*1,3+100=1,82+0,65+100=102,47
+$$
+$$
+(a) \hat{z_t}(2) = 0,5a_{t}+100= 0,5*(-2,6)+100=98,7
+$$
+$$
+(a) \hat{z_t}(3) = 100
+$$
+$$
+(b) z_t= a_t+(1+\phi_1)z_{t-1}-\phi_1z_{t-2}
+$$
+avec $(b)n=100;z_{99}=217;z_{100}=232;\hat{\phi_1}=0,3$
+
+$$
+(b) z_t= a_t+(1+0,3)z_{t-1}-0,3z_{t-2}
+$$
+$$
+(b) \hat{z_t}(1) = \hat{a}_{t+1}+(1+\phi_1)z_{t}-\phi_1z_{t-1}
+$$
+$$
+(b) \hat{z_t}(1) = (1,3)*232-0,3*217 = 301,6-65,1=236,5
+$$
+$$
+(b) \hat{z_t}(2) = (1,3)\hat{z}_{t+1}-0,3z_{t} = 307,45-69,6=237,85
+$$
+$$
+(b) \hat{z_t}(3) = (1,3)\hat{z}_{t+2}-0,3\hat{z}_{t+1}=238,255
+$$
+## 3 Trouver les valeurs des trois premiers poids pour chacun des modèles de l’exercice 2. Présenter à la fois la forme algébrique et les valeurs numériques.
+
+$$
+(a) z_{t} = a_{t}+\theta_1a_{t-1}+\theta_2a_{t-2}+\mu
+$$
+C'est un ARIMA(0,2,2), donc pour $k\geq1$ :
+$$
+(a) \psi_k=1+\theta_2(1-\theta_1-\theta_2)k
+$$
+$$
+(b) \hat{\psi}_0=1
+$$
+$$
+(a) \hat{\psi}_1=1+\theta_2(1-\theta_1-\theta_2)=1+0,5(1+0,7-0,5)=1,6
+$$
+$$
+(a) \hat{\psi}_1=1+\theta_2(1-\theta_1-\theta_2)2=1+1(1+0,7-0,5)=3,4
+$$
+Pour le deuxième modèle :
+
+$$
+(b) z_t= a_t+(1+\phi_1)z_{t-1}-\phi_1z_{t-2}
+$$
+C'est un ARIMA(1,1,0), donc pour $k\geq1$ :
+
+$$
+(b) \psi_k=(1+\phi^{k+1})/(1-\phi)
+$$
+$$
+(b) \hat{\psi}_0=1
+$$
+$$
+(b) \hat{\psi}_1=(1+\phi^{2})/(1-\phi)= 1,557143
+$$
+$$
+(b) \hat{\psi}_2=(1+\phi^{3})/(1-\phi)= 1,467143
+$$
+
+## 4 Déterminer l’écart type estimé de l’erreur de prévision pour chacune des prévisions produites dans l’exercice 2 en utilisant les informations suivantes
+
+La variance de l'écart type de l'erreur de prévision à pour formule :
+
+$$
+sd[e_t(l)]=\sigma\sqrt{\sum_{k=0}^{l-1}{\psi_k^2}}
+$$
+$$
+(a) sd[e_t(1)]=2,5\sqrt{1}=2,5
+$$
+$$
+(a)sd[e_t(2)]=2,5\sqrt{1+1,6^2}=4,716991
+$$
+$$
+(a)sd[e_t(3)]=2,5\sqrt{1+1,6^2+3,4^2}=9,721111
+$$
+$$
+(b) sd[e_t(1)]=8\sqrt{1}=8
+$$
+$$
+(b)sd[e_t(2)]=8\sqrt{1+1,557143^2}=14.80474
+$$
+$$
+(b)sd[e_t(3)]=8\sqrt{1+1,557143^2+1,467143^2}=18.89288
+$$
+## 5 Construire des intervalles de confiance de 80% et de 95% pour chacune des prévisions produites dans l’exerice 2.
+
+Formule de l'intervalle de confiance :
+$$
+E[z_{t+l}|F_t]\pm c_{\alpha/2}*sd[e_t(l)]
+$$
+Intervalle à 80 % :
+```{r}
+inter<-function(ca2,El,sdl) {
+  return(c(El+ca2*sdl,El-ca2*sdl))
+}
+
+ca2<-qnorm(0.10)
+El<-c(102.47,98.7,100)
+sdl<-c(2.5,4.716991,9.721111)
+
+data<-c()
+for (ind in 1:3) {
+  data<-rbind(data,inter(ca2,El[ind],sdl[ind]))
+}
+data<-cbind(El,sdl,data)
+
+ca2<-qnorm(0.025)
+data2<-c()
+for (ind in 1:3) {
+  data2<-rbind(data2,inter(ca2,El[ind],sdl[ind]))
+}
+
+data<-cbind(data,data2)
+colnames(data)<-c("prevision","erreur-type","intervalle borne min 80%", "intervalle borne max 80%","intervalle borne min 95%", "intervalle borne max 95%")
+
+print("modele a")
+print(data)
+```
+
+# 1. La prévision
+
+## 1. Écrire les modèle suivants sous forme d’équation aux différences :
+
+Sachant que $\widetilde{z_t} = z_t - \mu$
+
+$$
+(a) \widetilde{z_t} = (1+\theta_1B+\theta_2B^2)a_t
+$$
+$$
+(a) z_t = a_t+\theta_1a_{t-1}+\theta_2a_{t-2}+\mu
+$$
+$$
+(a) z_{t+1} = a_{t+1}+\theta_1a_{t}+\theta_2a_{t-1}+\mu
+$$
+
+$$
+(b) (1-\phi_1B)(1-B)\widetilde{z_t} = a_t
+$$
+$$
+(b) (1-B-\phi_1B+\phi_1B^2)(z_t-\mu) = a_t
+$$
+$$
+(b) (1-B-\phi_1B+\phi_1B^2)z_t= a_t
+$$
+Car $B\mu = \mu$
+$$
+(b) z_t-(1+\phi_1)z_{t-1}+\phi_1z_{t-2}= a_t
+$$
+$$
+(b) z_t= a_t+(1+\phi_1)z_{t-1}-\phi_1z_{t-2}
+$$
+$$
+(b) z_{t+1}= a_{t+1}+(1+\phi_1)z_{t}-\phi_1z_{t-1}
+$$
+## 2. Utiliser les informations suivantes pour prévoir les valeurs aux horizons l = 1, 2 et 3 pour chacun des modèles de la question 1.
+
+$$
+(a) z_t = a_t+\theta_1a_{t-1}+\theta_2a_{t-2}+\mu
+$$
+avec $(a)n=100;\hat{a_{99}}=1,3;\hat{a_{100}}=-2,6;\hat{\theta_1}=-0,7;\hat{\theta_{2}}=0,5;\hat{\mu}=100$
+
+$$
+(a) \hat{z_t} = a_t-0,7a_{t-1}+0,5a_{t-2}+100
+$$
+$$
+(a) \hat{z_t}(1) = -0,7a_{t}+0,5a_{t-1}+100
+$$
+$$
+(a) \hat{z_t}(1) = -0,7*(-2,6)+0,5*1,3+100=1,82+0,65+100=102,47
+$$
+$$
+(a) \hat{z_t}(2) = 0,5a_{t}+100= 0,5*(-2,6)+100=98,7
+$$
+$$
+(a) \hat{z_t}(3) = 100
+$$
+$$
+(b) z_t= a_t+(1+\phi_1)z_{t-1}-\phi_1z_{t-2}
+$$
+avec $(b)n=100;z_{99}=217;z_{100}=232;\hat{\phi_1}=0,3$
+
+$$
+(b) z_t= a_t+(1+0,3)z_{t-1}-0,3z_{t-2}
+$$
+$$
+(b) \hat{z_t}(1) = \hat{a}_{t+1}+(1+\phi_1)z_{t}-\phi_1z_{t-1}
+$$
+$$
+(b) \hat{z_t}(1) = (1,3)*232-0,3*217 = 301,6-65,1=236,5
+$$
+$$
+(b) \hat{z_t}(2) = (1,3)\hat{z}_{t+1}-0,3z_{t} = 307,45-69,6=237,85
+$$
+
+$$
+(b) \hat{z_t}(3) = (1,3)\hat{z}_{t+2}-0,3\hat{z}_{t+1}=238,255
+$$
+
+## 3 Trouver les valeurs des trois premiers poids pour chacun des modèles de l’exercice 2. Présenter à la fois la forme algébrique et les valeurs numériques.
+
+$$
+(a) z_{t} = a_{t}+\theta_1a_{t-1}+\theta_2a_{t-2}+\mu
+$$
+  
+C'est un ARIMA(0,2,2), donc pour $k\geq1$ :
+
+$$
+(a) \psi_k=1+\theta_2(1-\theta_1-\theta_2)k
+$$
+$$
+(b) \hat{\psi}_0=1
+$$
+$$
+(a) \hat{\psi}_1=1+\theta_2(1-\theta_1-\theta_2)=1+0,5(1+0,7-0,5)=1,6
+$$
+$$
+(a) \hat{\psi}_1=1+\theta_2(1-\theta_1-\theta_2)2=1+1(1+0,7-0,5)=3,4
+$$
+Pour le deuxième modèle :
+
+$$
+(b) z_t= a_t+(1+\phi_1)z_{t-1}-\phi_1z_{t-2}
+$$
+
+C'est un ARIMA(1,1,0), donc pour $k\geq1$ :
+
+$$
+(b) \psi_k=(1+\phi^{k+1})/(1-\phi)
+$$
+$$
+(b) \hat{\psi}_0=1
+$$
+$$
+(b) \hat{\psi}_1=(1+\phi^{2})/(1-\phi)= 1,557143
+$$
+$$
+(b) \hat{\psi}_2=(1+\phi^{3})/(1-\phi)= 1,467143
+$$
+
+\newpage
+## 4 Déterminer l’écart type estimé de l’erreur de prévision pour chacune des prévisions produites dans l’exercice 2 en utilisant les informations suivantes
+
+La variance de l'écart type de l'erreur de prévision a pour formule :
+
+$$
+sd[e_t(l)]=\sigma\sqrt{\sum_{k=0}^{l-1}{\psi_k^2}}
+$$
+
+$$
+(a) sd[e_t(1)]=2,5\sqrt{1}=2,5
+$$
+$$
+(a)sd[e_t(2)]=2,5\sqrt{1+1,6^2}=4,716991
+$$
+$$
+(a)sd[e_t(3)]=2,5\sqrt{1+1,6^2+3,4^2}=9,721111
+$$
+$$
+(b) sd[e_t(1)]=8\sqrt{1}=8
+$$
+$$
+(b)sd[e_t(2)]=8\sqrt{1+1,557143^2}=14.80474
+$$
+$$
+(b)sd[e_t(3)]=8\sqrt{1+1,557143^2+1,467143^2}=18.89288
+$$
+
+## 5 Construire des intervalles de confiance de 80% et de 95% pour chacune des prévisions produites dans l’exerice 2.
+
+
+Formule de l'intervalle de confiance :
+$$
+E[z_{t+l}|F_t]\pm c_{\alpha/2}*sd[e_t(l)]
+$$
+Intervalle à 80 % :
+```{r}
+inter<-function(ca2,El,sdl) {
+  return(c(El+ca2*sdl,El-ca2*sdl))
+}
+
+ca2<-qnorm(0.10)
+El<-c(102.47,98.7,100)
+sdl<-c(2.5,4.716991,9.721111)
+
+data<-c()
+for (ind in 1:3) {
+  data<-rbind(data,inter(ca2,El[ind],sdl[ind]))
+}
+data<-cbind(El,sdl,data)
+
+ca2<-qnorm(0.025)
+data2<-c()
+for (ind in 1:3) {
+  data2<-rbind(data2,inter(ca2,El[ind],sdl[ind]))
+}
+
+data<-cbind(data,data2)
+colnames(data)<-c("prevision","erreur-type","intervalle borne min 80%", "intervalle borne max 80%","intervalle borne min 95%", "intervalle borne max 95%")
+
+kable(data, caption = "Modèle a", booktab = T) %>%
+  kable_styling(position = "center", font_size = 8,
+                latex_options = c("striped", "hold_position"))
+
+ca2<-qnorm(0.10)
+El<-c(c(236.5,237.85,238.255))
+sdl<-c(8,14.80474,18.89288)
+
+data<-c()
+for (ind in 1:3) {
+  data<-rbind(data,inter(ca2,El[ind],sdl[ind]))
+}
+data<-cbind(El,sdl,data)
+
+ca2<-qnorm(0.025)
+data2<-c()
+for (ind in 1:3) {
+  data2<-rbind(data2,inter(ca2,El[ind],sdl[ind]))
+}
+
+data<-cbind(data,data2)
+colnames(data)<-c("prevision","erreur-type","intervalle borne min 80%", "intervalle borne max 80%","intervalle borne min 95%", "intervalle borne max 95%")
+
+kable(data, caption = "Modèle b", booktab = T) %>%
+  kable_styling(position = "center", font_size = 8,
+                latex_options = c("striped", "hold_position"))
+
+```
+
+
+# 3.1 Etude des corrélogrammes saisonniers
+```{r}
+getIt <- function(phi,theta){
+  op <- par(no.readonly = TRUE) # Obtenir l'environnement graphique.
+  par(mfrow=c(1,2),mai=c(0.8,0.8,0,0.25)) # Le modifier
+  theo.rho <-ARMAacf(ar = phi, ma=theta, lag.max = 40, pacf = FALSE)
+  lag <- as.integer(seq(0,40,1))
+  plot(lag,theo.rho,type="h",frame=FALSE,ylim=c(-1,1),
+       xlab="Délai",
+       ylab=expression(italic(rho[k])),
+       las=1)
+  abline(h=0)
+  points(lag,theo.rho,cex=0.25,pch=19)
+  theo.rho.part <- ARMAacf(ar = phi, ma=theta, lag.max = 40, pacf = TRUE)
+  plot(theo.rho.part,type="h",frame=FALSE,ylim=c(-1,1),
+       main="", las=1,
+       xlab="Délai",
+       ylab=expression(phi[kk]),
+       xlim=c(0,40))
+  abline(h=0)
+  points(theo.rho.part,cex=0.25,pch=19)
+  par(op) # Restaurer l'environnement graphique.
+}
+```
+
+## 1 S'inspirant du script 1, tracer et commenter les fonctions d'autocorrélations des modèles suivants:
+
+### (a) $Y_t = (1 + \Theta B^{12})\epsilon_t$
+
+```{r}
+s <-  12
+phi <-  NULL
+theta <-  c(rep(0,s-1),0.4)
+getIt(phi,theta)
+```
+
+La décroissance de l'ACF de 12 en 12 est assez lente, symptôme de saisonnalité. De plus, sur le PACF, les autocorrélations s'annullent après chaque retard multiple de 12. On pourrait envisager un modèle MA(1).
+
+### (b) $Y_t = (1 + \theta B)(1 + \Theta B^{12})\epsilon_t$
+```{r}
+phi <-  NULL
+theta <-  c(0.4,rep(0,s-2),0.8)
+getIt(phi,theta)
+```
+
+On remarque sur l'ACF une décroissance exponentielle sur le retard 0 et le retard 12.
+
+
+### (c) $(1 - \Phi B^{12})Y_t = (1 + \Theta B^{12})\epsilon_t$
+```{r}
+phi <-  c(rep(0,s-1),0.5)
+theta <-  c(rep(0,s-1),0.8)
+getIt(phi,theta)
+```
+
+Cela ressemble fortement à notre premier modèle, avec des pics décroissants sur les retards de 12 notés sur l'ACF et d'autre part, des pics de signes contraires sur le PACF. On pourrait donc envisager un modèle MA(2).
+
+### (d) $(1 - \Phi B^{12})Y_t = (1 + \theta B)\epsilon_t$
+```{r}
+phi <-  c(rep(0,s-1),0.6)
+theta <-  0.5
+getIt(phi,theta)
+```
+
+Les autocorrélations théoriques ont une forme sinisoïdale amortie. De plus la PACF présente des autocorrélations qui sembles significatives sur les retards 1, 11 et 12. On pourrait donc envisager un modèle  ARMA(1,1)
+
+### (e) $Y_t = (1 + \theta_1 B+ \theta_2 B^2)(1 + \Theta_1 B^{12})\epsilon_t$
+
+```{r}
+phi <-  NULL
+theta <-  c(0.6,0.3,rep(0,s-3),0.5)
+getIt(phi,theta)
+```
+
+On est en présence d'un modèle multiplicatif et saisonnier. Sur la PACF les retards multuples de 12 changent de signe et seuls les retards 1 et 12 semblent significatifs. Le modèle pourrait donc être MA(2).
+
+
+## 2. En choisissant des valeurs intéressantes pour chacun des paramètre et en s’inspirant du script 1, tracer et commenter les fonctions d’autocorrélation des modèles suivants
+
+### (a) $Y_t = (1 + \theta_1 B+ \theta_{12} B^{12} + \theta_{13} B^{13})\epsilon_t$
+```{r}
+phi <-  NULL
+theta <-  c(0.6,rep(0,s-2),0.5, 0.4)
+getIt(phi,theta)
+```
+
+
+### (b) $Y_t = (1 + \theta_1 B)(1 + \Theta B^{12})\epsilon_t$
+```{r}
+phi <-  NULL
+theta <-  c(0.6,rep(0,s-2),0.5)
+getIt(phi,theta)
+```
+
+On remarque que la saisonnalité est plus marquée sur (a) et de plus les autocorrélations empiriquent s'annulent plus rapidement par rapport à (b)
+
+# 4. Etudes de cas
+
+# 4.1. Consommation de gaz dans le comté de Stephens
+```{r}
+gaz <- ts(c(855.2, 741.9, 617.3, 495.5, 283.2, 218.0, 121.8, 133.1, 138.8, 195.4, 430.4, 580.5,
+      831.7, 765.2, 605.0, 496.6, 293.4, 219.9, 71.4, 148.9, 168.6, 199.1, 418.3, 583.1,
+      849.9, 750.8, 640.1, 513.0, 335.7, 239.6, 80.8, 128.7, 161.0, 240.5, 422.4, 609.9,
+      856.8, 779.6, 638.9, 499.1, 295.5, 210.9, 61.4, 166.9, 170.3, 212.6, 406.2, 605.9,
+      848.9, 766.5, 635.7, 511.2, 273.7, 204.5, 68.8, 170.4, 155.1, 212.6, 429.6, 605.3,
+      865.4, 759.4, 640.6, 518.1, 333.1, 261.0, 96.3, 169.3, 156.5, 216.6, 430.2, 585.8,
+      876.9, 773.3, 631.5, 488.0, 305.9, 270.4, 99.1, 170.7, 194.6, 222.0, 420.8, 617.3,
+      872.5, 760.6, 628.4, 516.2, 312.6, 267.4, 97.9, 167.9, 170.5, 230.0, 438.2, 577.8,
+      889.5, 791.4, 680.3, 531.2, 332.2, 256.7, 116.1, 164.0, 177.8, 241.7, 424.8, 585.9),
+start=c(2005,1),frequency =12)
+```
+
+## 1. Retirez les 12 dernières observations de la série et identifier un modèle pour cette série tronquée
+```{r fig.height=3.5}
+mois <- c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")
+gaz.tr <- window(gaz, 2005, c(2012, 12))
+p1 <- autoplot(gaz.tr, size = 1)  +
+    labs(title = "Consommation de gaz dans le comté de Stephens", 
+         subtitle = "2005-2012", x = "Année", y = "")
+p2 <- ggplot(gaz.tr, aes(factor(cycle(gaz.tr)), gaz.tr, 
+                   color = factor(cycle(gaz.tr)))) +
+  geom_boxplot() +
+  theme(legend.position = "none") +
+  labs(x = "mois", y = "")
+  
+fig <- ggarrange(p1, p2, nrow = 2)
+annotate_figure(fig, left = "Consommation de gaz")
+```
+
+La consommation de gaz dans le comté de Stephens a une tendance très saisonnière avec très peu de variance. On note des baisses de consommations importantes pendant l'été et à moindre mesure pendant l'automne. Ceci est peut être dû a un surplus de consommation des chaudières pendant l'hiver qui peut, en moyenne, atteindre 850 en janvier.
+
+
+```{r}
+p1 <- ggAcf(gaz.tr) + labs(title = "ACF", y = "")
+p2 <- ggPacf(gaz.tr,12) + 
+  labs(title = "PACF", y = "") +
+    theme(axis.text.y = element_blank())
+p3 <- ggAcf(diff(gaz.tr,12)) + 
+  labs(title = "ACF", 
+       subtitle = "série différenciée d'ordre 12", y = "") +
+    theme(axis.text.y = element_blank())
+p4 <- ggPacf(diff(gaz.tr,12)) + 
+  labs(title = "PACF", 
+       subtitle = "série différenciée d'ordre 12", y = "") +
+    theme(axis.text.y = element_blank())
+ggarrange(p1,p2,p3,p4, ncol = 2, nrow = 2) 
+```
+
+On observe que l'ACF présente des retards significatifs en forme sinisoïdale et des pics aux retards de 12 qui ne diminuent que très lentement. L'ACF de la série différenciée montre un pic au retard 12 suivi d'une forte atténuation, caractéristique d'une série stationnaire avec saisonalité.  
+On pourrait donc envisager un modèle **ARIMA(1,0,0)(2,1,0)[12]** avec une différenciation saisonnière.
+
+
+## 2. Estimer les paramètres de ce modèle, pour cette série tronquée
+Les parmètres estimés du modèle sont donnés par le tableau suivant:
+```{r}
+gaztr.fit <- Arima(gaz.tr, order=c(0,0,1), seasonal=c(2,1,0), include.constant = TRUE)
+pander(gaztr.fit)
+```
+
+
+
+```{r}
+checkresiduals(gaztr.fit)
+```
+
+Les résidus semblent stationnaires et suivent une loi normale. Aucune autocorrélation des erreurs n'est significative et le test de Ljung-Box donne une p-valeur = 0.8178. Ce qui confirme que les erreurs ne sont pas autocorrélées.
+
+```{r eval=FALSE}
+par(mfrow = c(1, 1))
+gaz.model <- sarima(gaz.tr,p=1,d=0,q=0,P=2,D=1,Q=0,S=12)
+pander(gaz.model)
+```
+
+## 3. Donner de manière précise l'équation du modèle
+
+L'équation explicite du modèle est:
+$$(1 - 0.5958B - 0.3681B^2)\nabla\nabla_{12} Y_t = (1 + 0.2104B^{12})\epsilon_t$$
+
+## 4. Faites les prévisions des 12 valeurs à partir de janvier 2013
+```{r fig.height=3, eval=FALSE}
+predict <- sarima.for(gaz.tr,n.ahead=12,p=0,d=0,q=1,P=2,D=1,Q=0,S=12)
+```
+
+```{r fig.height=2}
+gaz.predict <- forecast(gaztr.fit, 12)
+autoplot(gaz.predict, size = 1)
+```
+
+
+
+## 5. Comparer les prévisions aux valeurs réelles et commenter
+
+```{r fig.height=2.8}
+gaz.pred <- data.frame(gaz.predict)[,1]
+gaz.2013 <- window(gaz, c(2013,1), c(2013,12))
+#comparaison <-  ts.union(pred, gaz.2013)
+#autoplot(comparaison, size = 1)
+comparaison <- data.frame(gaz.pred, x = 1:12, gaz.2013, mois = mois)
+comparaison %>% 
+    gather(key = key, value = value, -x, -mois) %>% 
+    ggplot(aes(x, value, group = key, color = key)) +
+    geom_point() +
+    geom_line(size =1) +
+    theme(legend.position = "bottom") +
+    scale_color_discrete(name = "", labels = c("Valeurs réelles", "Valeurs prédites")) +
+    xlim(mois) +
+    labs(title = "Comparaison de la prévision avec les valeurs réelles", 
+         x = "Mois", y = "Consommation de gaz")
+```
+
+Dans l'ensemble, les valeurs prédites sont très proches des valeurs réelles nottamment entre Avril et Décembre où la variance de l'erreur est moindre.
+
+
+\newpage
+# 4.2. Niveau d'emploi dans le compté de Stephens
+
+```{r}
+emp <- ts(c(287.5, 283.7, 284.2, 289.8, 292.4, 295.3, 292.9, 293.0, 293.8, 295.9, 301.1, 313.7,
+          285.1, 282.8, 283.3, 291.1, 293.4, 295.9, 294.8, 297.2, 298.7, 301.7, 307.1, 316.4,
+          290.6, 287.2, 287.6, 296.6, 299.2, 302.8, 303.4, 304.3, 305.0, 307.3, 312.4, 322.6,
+          300.1, 297.5, 298.8, 304.6, 310.0, 313.6, 313.6, 314.3, 316.0, 320.8, 324.7, 337.8,
+          314.3, 310.3, 311.6, 319.2, 325.3, 329.3, 328.8, 328.6, 329.9, 336.0, 342.5, 355.1,
+          330.5, 328.3, 331.1, 337.3, 342.2, 346.9, 347.0, 346.7, 349.3, 354.4, 360.2, 373.1,
+          344.3, 339.6, 343.4, 349.8, 354.5, 359.6, 357.5, 357.7, 360.2, 365.8, 374.3, 385.1,
+          358.0, 354.6, 356.6, 363.2, 368.0, 370.9, 370.4, 371.9, 373.0, 377.6, 385.4, 394.8,
+          369.1, 366.6, 369.6, 377.3, 384.6, 388.1, 387.6, 389.3, 391.3, 395.2, 402.0, 410.3,
+          386.2, 380.8, 382.3, 388.1, 392.5, 393.5, 390.4, 390.8, 396.0, 400.2, 404.5, 409.6,
+          385.9, 381.8, 383.5, 391.4, 398.8, 401.0, 401.4, 402.6, 402.1, 405.8, 410.3, 417.5,
+          395.4, 391.7, 394.9, 404.6, 413.9, 419.5, 421.2, 424.6, 425.4, 428.9, 434.5, 441.0,
+          417.5, 414.0, 418.7, 426.4, 434.9, 439.9, 439.2, 444.2, 445.1, 449.4, 456.2, 461.5,
+          432.7, 425.3, 428.9, 440.4, 450.8, 457.2, 457.4, 459.6, 461.2, 464.4, 470.0, 475.2,
+          448.8, 444.5, 447.8, 457.3, 467.9, 473.5, 472.8, 476.4, 476.6, 479.3),
+        start=c(2001,1),frequency =12)
+```
+
+
+## 1. Retirez les observations de 2015 de cette série et identifier un modèle pour cette série tronquée
+```{r fig.height=3.5}
+emp.tr <- window(emp, 2001, c(2014,12))
+emptr.log <- log(emp.tr)
+p1 <- autoplot(emp.tr, size = 1)  +
+  labs(title = "Niveau d'emploi dans le comté de Stephens", 
+       subtitle = "2001-2014", x = "", y = "")
+p2 <- ggplot(emp.tr, aes(factor(cycle(emp.tr)), emp.tr, 
+                   color = factor(cycle(emp.tr)))) +
+  geom_boxplot() +
+  theme(legend.position = "none") +
+  labs(x = "mois", y = "")
+  
+fig <- ggarrange(p1, p2, nrow = 2)
+annotate_figure(fig, left = "Niveau d'emploi")
+```
+
+Depuis 2004, le niveau d'emploi dans le comté de Stephens manifeste une tendance à la hausse au fur des années avec des variations saisonnières assez marquées. Le nombre moyen du niveau d'emploi a tendance à diminuer entre Janvier et Mars puis s'en suit une hausse régulière qui atteint son pic maximal au mois de Décembre.  
+Nous remarquons aussi qu'il y'a une légère augmentation de la variance entre 2012 et 2015. Pour palier à ce phénomène, nous allons utiliser par la suite le logarithme.
+
+
+
+```{r}
+emptr.log %>% 
+  diff(12) %>%
+  ggtsdisplay(xlab="Année", main="Log du niveau d'emploi différencié")
+```
+
+L'ACF montre une dimunition linéaire des autocorrélations.  
+Sur le PACF, on observe une diminution brusque des autocorrélations à partir du retard 1 qui est d'ailleurs le seul à être significatif.  
+On peut donc prendre comme modèle un **ARIMA(0,1,1)(1,1,1)[12]**
+
+```{r eval = FALSE}
+p1 <- ggAcf(emp.tr) + labs(title = "ACF", y = "")
+p2 <- ggPacf(emp.tr) + labs(title = "PACF", y = "") +
+    theme(axis.text.y = element_blank())
+ggarrange(p1,p2, ncol = 2) 
+```
+
+
+
+## 2. Estimer les paramètres de ce modèle, pour cette série tronquée
+Les parmètres estimés du modèle sont donnés par le tableau suivant:
+```{r}
+emptr.fit <- Arima(emp.tr, order=c(0,1,1), seasonal=c(1,1,1))
+pander(emptr.fit)
+```
+
+
+```{r}
+checkresiduals(emptr.fit)
+```
+
+Les résidus semblent stationnaires et suivent une loi normale. Aucune autocorrélation des erreurs n'est significative et le test de Ljung-Box donne une p-valeur = 0.8238. Ce qui confirme que les erreurs ne sont pas autocorrélées.
+
+```{r eval=FALSE}
+par(mfrow = c(1, 1)) #
+emp.model <- sarima(emp.tr,p=0,d=1,q=1,P=1,D=1,Q=1,S=12,details=TRUE)
+pander(emp.model)
+```
+
+## 3. Donner de manière précise l'équation du modèle estimé
+
+L'équation explicite du modèle est:
+$$(1 + 0.3777B)\nabla_{12} Y_t = (1 + 0.1978B - 0.7137B^{12})\epsilon_t$$
+
+
+## 4. Faites les prévisions des valeurs de 2015
+```{r fig.height=2.5}
+emptr.predict <- forecast(emptr.fit, 12)
+autoplot(emptr.predict, size = 1)
+```
+
+```{r fig.height=3, eval=FALSE}
+emp.predict <- sarima.for(emp.tr,n.ahead=12,p=0,d=1,q=1,P=1,D=1,Q=1,S=12)
+```
+
+
+## 5. Comparer les prévisions aux valeurs réelles et commenter
+
+```{r fig.height=2.5}
+emp.pred <- data.frame(emptr.predict)[1:10,1]
+emp.2015 <- window(emp, c(2015,1), c(2015,12))
+emp.compar <- data.frame(emp.pred, x = 1:10, emp.2015, mois = mois[1:10])
+emp.compar %>% 
+    gather(key = key, value = value, -x, -mois) %>% 
+    ggplot(aes(x, value, group = key, color = key)) +
+    geom_point() +
+    geom_line(size =1) +
+    theme(legend.position = "bottom") +
+    scale_color_discrete(name = "", labels = c("Valeurs réelles", "Valeurs prédites")) +
+    xlim(mois) +
+    labs(title = "Comparaison de la prévision avec les valeurs réelles", 
+         x = "Mois", y = "Niveau d'emploi")
+```
+
+Quelque soit le mois, les valeurs prédites sont inférieures aux valeurs réelles surtout entre le mois de Mai et le mois d'Août où l'on observe une variance des erreurs plus importante.
+
+
+\newpage
+# 4.3. Trafic aérien aux Etats-Unis
+
+```{r}
+trafic <- ts(c(30983174, 32147663, 38342975, 35969113, 36474391, 38772238, 40395657, 41738499, 33580773, 36389842, 32734901, 36866146,
+          28829794, 29715369, 37179450, 34002004, 34585497, 36981956, 38912640, 39715971, 32047526, 34405523, 32121254, 34447370,
+          33809257, 32688448, 39908269, 38618515, 38823805, 41119273, 42153193, 43171610, 35309230, 38570506, 36291556, 37511830,
+          35450576, 34337785, 42448030, 40818378, 40464057, 43527294, 46918931, 45841044, 37829297, 41651047, 39875749, 39190232,
+          36195402, 37239740, 45664486, 43262977, 44467601, 47261820, 48826557, 48160579, 39573944, 42900870, 41847515, 40727132,
+          38306506, 36969339, 45686100, 43711664, 43674826, 46654145, 49597273, 50169907, 27077913, 34181554, 34749808, 35726959,
+          33895671, 33620972, 42633492, 39536354, 40895024, 44060019, 47183364, 46899366, 34776695, 40093025, 37213997, 42407172,
+          37197809, 35099316, 42910514, 40370292, 41875126, 45592190, 49633439, 48343838, 37858815, 42507287, 40238253, 43698675,
+          39180114, 39736435, 47876012, 47050439, 46534130, 51134050, 54317314, 52392985, 41816777, 47205665, 44553653, 46316602,
+          42760657, 41120838, 52053059, 48152585, 50047901),start=c(1996,1),frequency=12)/1000000
+```
+
+
+## 1. Retirez les observations à partir du mois de Septembre 2001 de cette série et identifier un modèle
+```{r fig.height=3.5}
+trafic.tr <- window(trafic, c(2001,9), c(2014,12))
+p1 <- autoplot(trafic.tr, size = 1) +
+    labs(title = "Trafic aérien aux Etats-Unis", 
+         subtitle = "09/2001-05/2005", x = "Année", y = "")
+p2 <- ggplot(trafic.tr, aes(factor(cycle(trafic.tr)), trafic.tr, 
+                   color = factor(cycle(trafic.tr)))) +
+  geom_boxplot() +
+  theme(legend.position = "none") +
+  labs(x = "mois", y = "")
+  
+fig <- ggarrange(p1, p2, nrow = 2)
+annotate_figure(fig, left = "Nombre de trafic")
+```
+
+Le trafic aérien aux Etats-Unis montre une tendance croissante au fur des années avec une saisonnalité prononcée. Le trafic est plus dense entre le printemps et l'été et plus particulièrement pendant le mois de Juillet où l'on observe des pics pouvant aller jusqu'à 54.7. Le mois de Septembre enregistre la plus faible activité qui peut être expliquée par la fin de saison des vacances d'été en Août.
+
+
+```{r fig.height=3}
+p1 <- ggAcf(trafic.tr) + labs(title = "ACF", y = "")
+p2 <- ggPacf(trafic.tr) + labs(title = "PACF", y = "") +
+    theme(axis.text.y = element_blank())
+ggarrange(p1,p2, ncol = 2) 
+```
+
+Les autocorrélations empiriques sont significatives principalement aux retards 2 et 12 avec une décroissance exponentielle sur les 5 premiers retards. De plus la PACF semble s'atténuer plus vite que l'ACF après le retard 12.  
+On privilégie donc un autorégressif saisonnier d'ordre 1: **ARIMA(1,0,0)(1,1,0)[12]**
+
+
+
+## 2. Estimer les paramètres de ce modèle, pour cette série tronquée
+Les parmètres estimés du modèle sont donnés par le tableau suivant:
+```{r}
+trafictr.fit <- Arima(trafic.tr, order=c(1,0,0), seasonal=c(1,1,0), include.constant = TRUE)
+pander(trafictr.fit)
+```
+
+
+```{r}
+checkresiduals(trafictr.fit)
+```
+
+Malgré que les résidus semblent dissymétrique entre la fin de l'anné 2002 et le début de l'anné 2003, le test de Ljung-Box est significatif au seuil de 5%(p-valeur = 0.07278). Ils ne sont donc pas autocorrélés et leur densité montre qu'ils suivent une loi normale.
+
+
+
+```{r eval=FALSE}
+par(mfrow = c(1, 1)) #
+# Estimation
+#
+trafic.model <- sarima(trafic.tr,p=1,d=0,q=0,P=1,D=1,Q=0,S=12,details=TRUE)
+pander(trafic.model)
+```
+
+
+
+## 3. Donner de manière précise l'équation de ce modèle
+
+L'équation explicite du modèle est:
+$$(1 + 0.3995B)\nabla_{12} Y_t = (1 - 0.5523B^{12})\epsilon_t$$

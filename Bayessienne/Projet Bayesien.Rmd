@@ -8,9 +8,9 @@ output:
 ---
 
 ```{r}
-aci=read.csv("/Users/khadija/Desktop/donnees.txt",header=F)
+aci <- read.csv("/Users/khadija/Desktop/donnees.txt", header = F)
 head(aci)
-colnames(aci)="Acidite"
+colnames(aci) <- "Acidite"
 dim(aci)
 anyNA(aci)
 summary(aci)
@@ -19,8 +19,8 @@ summary(aci)
 ### Analyse de visualisation des données
 
 ```{r}
-hist(aci$Acidite,xlab="Acidite",freq=F,main="Histogram")
-lines(density(aci$Acidite),col="red")
+hist(aci$Acidite, xlab = "Acidite", freq = F, main = "Histogram")
+lines(density(aci$Acidite), col = "red")
 rug(aci$Acidite)
 ```
 
@@ -34,59 +34,59 @@ $$p(x)=\sum^K_{k=1}p(k)p(x|k)=\sum^k_{K=1}\pi_{k}N(x|u_k,\sigma_k)  $$
 
 
 ```{r}
-y=aci$Acidite
+y <- aci$Acidite
 
-fnorm <- function(x, mu, sigma)
-{
-  return(1/(sqrt(2*pi)*sigma)*exp(-0.5*(x-mu)^2/sigma))
+fnorm <- function(x, mu, sigma) {
+  return(1 / (sqrt(2 * pi) * sigma) * exp(-0.5 * (x - mu)^2 / sigma))
 }
 
-IterEM <- function(mu1, mu2, sigma1, sigma2, pi0, eps)
-{
-  cat('Start EM...\n')
-  cat(paste0('pi = ', pi0, '\n'))
-  iters = 0
-  ll = c()
-  while(TRUE)
-  {
+IterEM <- function(mu1, mu2, sigma1, sigma2, pi0, eps) {
+  cat("Start EM...\n")
+  cat(paste0("pi = ", pi0, "\n"))
+  iters <- 0
+  ll <- c()
+  while (TRUE) {
     ## Expectation step: compute the responsibilities
     ## calculate the delta's expectation
-    gamma = sapply(y, function(x) pi0*fnorm(x, mu2, sigma2)/((1-pi0)*fnorm(x, mu1, sigma1) + pi0*fnorm(x, mu2, sigma2)))
-    ll = c(ll, sum((1-gamma)*log(fnorm(y,mu1,sigma1))+gamma*log(fnorm(y, mu2, sigma2))+(1-gamma)*log(1-pi0)+gamma*log(pi0)))
+    gamma <- sapply(y, function(x) pi0 * fnorm(x, mu2, sigma2) / ((1 - pi0) * fnorm(x, mu1, sigma1) + pi0 * fnorm(x, mu2, sigma2)))
+    ll <- c(ll, sum((1 - gamma) * log(fnorm(y, mu1, sigma1)) + gamma * log(fnorm(y, mu2, sigma2)) + (1 - gamma) * log(1 - pi0) + gamma * log(pi0)))
     ## Maximization Step: compute the weighted means and variances
-    mu1.new = sum((1-gamma)*y)/sum(1-gamma)
-    mu2.new = sum(gamma*y)/sum(gamma)
-    sigma1.new = sqrt(sum((1-gamma)*(y-mu1.new)^2)/sum(1-gamma))
-    sigma2.new = sqrt(sum((gamma)*(y-mu2.new)^2)/sum(gamma))
-    pi0.new = sum(gamma)/length(y)
-    cat(paste0('pi = ', pi0.new, '\n'))
-    if (abs(pi0.new-pi)< eps || iters > 20)
-    {
-      cat('Finish!\n')
-      cat(paste0('mu1 = ', mu1.new, '\n',
-                 'mu2 = ', mu2.new, '\n',
-                 'sigma1^2 = ', sigma1.new^2, '\n',
-                 'sigma2^2 = ', sigma2.new^2))
+    mu1.new <- sum((1 - gamma) * y) / sum(1 - gamma)
+    mu2.new <- sum(gamma * y) / sum(gamma)
+    sigma1.new <- sqrt(sum((1 - gamma) * (y - mu1.new)^2) / sum(1 - gamma))
+    sigma2.new <- sqrt(sum((gamma) * (y - mu2.new)^2) / sum(gamma))
+    pi0.new <- sum(gamma) / length(y)
+    cat(paste0("pi = ", pi0.new, "\n"))
+    if (abs(pi0.new - pi) < eps || iters > 20) {
+      cat("Finish!\n")
+      cat(paste0(
+        "mu1 = ", mu1.new, "\n",
+        "mu2 = ", mu2.new, "\n",
+        "sigma1^2 = ", sigma1.new^2, "\n",
+        "sigma2^2 = ", sigma2.new^2
+      ))
       break
     }
-    mu1 = mu1.new
-    mu2 = mu2.new
-    sigma1 = sigma1.new
-    sigma2 = sigma2.new
-    pi0 = pi0.new
-    iters = iters + 1
+    mu1 <- mu1.new
+    mu2 <- mu2.new
+    sigma1 <- sigma1.new
+    sigma2 <- sigma2.new
+    pi0 <- pi0.new
+    iters <- iters + 1
   }
   return(ll)
 }
 ## take initial guesses for the parameters
-mu1 = 5; sigma1 = 0.5
-mu2 = 7; sigma2 = 1
-pi0 = 0.1
-eps = 0.01
-ll = IterEM(mu1, mu2, sigma1, sigma2, pi0, eps)
+mu1 <- 5
+sigma1 <- 0.5
+mu2 <- 7
+sigma2 <- 1
+pi0 <- 0.1
+eps <- 0.01
+ll <- IterEM(mu1, mu2, sigma1, sigma2, pi0, eps)
 
 ## Figure 8.6
-plot(1:length(ll), ll, xlab = 'iterations', ylab = 'Log-likelihood', 'o')
+plot(1:length(ll), ll, xlab = "iterations", ylab = "Log-likelihood", "o")
 ```
 
 ### MCMC pour l'échantillonnage du postérieur
@@ -103,63 +103,65 @@ $$\centerdot \quad \pi(\sigma^2|\mu)=IG(a+\frac{n}{2};b+\frac{1}{2}\sum{(x_i-\mu
 
 ```{r results='hide', message=FALSE, warning=FALSE}
 library(MCMCpack)
-mu1_0=4.5
-mu2_0=6.3
-sigma1_0=1
-sigma2_0=1
+mu1_0 <- 4.5
+mu2_0 <- 6.3
+sigma1_0 <- 1
+sigma2_0 <- 1
 
-mu1 = 5
-mu2 = 7
-sigma1 = 0.37
-sigma2 = 0.38
+mu1 <- 5
+mu2 <- 7
+sigma1 <- 0.37
+sigma2 <- 0.38
 
-moy.prior.sig<- 1
-var.prior.sig<- 1
-a<-2+moy.prior.sig^2/var.prior.sig
-b<-moy.prior.sig*(a-1)
+moy.prior.sig <- 1
+var.prior.sig <- 1
+a <- 2 + moy.prior.sig^2 / var.prior.sig
+b <- moy.prior.sig * (a - 1)
 
-N = length(y)
-t = 0
-mu1.h = mu1
-mu2.h = mu2
-sigma1.h = sigma1
-sigma2.h = sigma2
-Delta = rep(c(0, 1), each = N/2)
-pi0 = sum(Delta)/N
-pi0.h = pi0
-T = 50  # "burn in"
-while(TRUE){
-  t = t + 1
-  gamma = sapply(1:N, function(i) pi0*dnorm(y[i], mu2, sigma2)/((1-pi0)*dnorm(y[i], mu1, sigma1)+pi0*dnorm(y[i], mu2, sigma2)))
+N <- length(y)
+t <- 0
+mu1.h <- mu1
+mu2.h <- mu2
+sigma1.h <- sigma1
+sigma2.h <- sigma2
+Delta <- rep(c(0, 1), each = N / 2)
+pi0 <- sum(Delta) / N
+pi0.h <- pi0
+T <- 50 # "burn in"
+while (TRUE) {
+  t <- t + 1
+  gamma <- sapply(1:N, function(i) pi0 * dnorm(y[i], mu2, sigma2) / ((1 - pi0) * dnorm(y[i], mu1, sigma1) + pi0 * dnorm(y[i], mu2, sigma2)))
   ## sample Delta
-  r = runif(N)
-  Delta[gamma < r] = 0
-  Delta[gamma >= r] = 1
-  pi0 = sum(Delta)/N
-  
+  r <- runif(N)
+  Delta[gamma < r] <- 0
+  Delta[gamma >= r] <- 1
+  pi0 <- sum(Delta) / N
+
   ## print info
   cat("t = ", t, "\n")
-  for (i in 1:N)
+  for (i in 1:N) {
     cat(Delta[i], " ")
+  }
   cat("\n")
-  cat("mu1 = ", mu1,"sigma1 =", sigma1, " mu2 = ", mu2,"sigma2 =", sigma2, "pi0 = ", pi0, "\n")
+  cat("mu1 = ", mu1, "sigma1 =", sigma1, " mu2 = ", mu2, "sigma2 =", sigma2, "pi0 = ", pi0, "\n")
 
   ## generate mu1 and mu2
-  mu1 = rnorm(1,(sigma1_0*sum((1-Delta)*y)+sigma1*mu1_0)/(sum(1-Delta)*sigma1_0+sigma1),sqrt(sigma1*sigma1_0/(sum(1-Delta)*sigma1_0+sigma1)))
-  notnull=(1-Delta)*y
-  sigma1 = rinvgamma(1,shape =a+sum(1-Delta)/2,scale=1/2*sum((notnull[notnull!=0]-mu1)^2)+b)
-  mu2 = rnorm(1,(sigma2_0*sum(Delta*y)+sigma2*mu2_0)/(sum(Delta)*sigma2_0+sigma2),sqrt(sigma2*sigma2_0/(sum(Delta)*sigma2_0+sigma2)))
-  notnull=Delta*y
-  sigma2 = rinvgamma(1,shape =a+sum(Delta)/2,scale=1/2*sum((notnull[notnull!=0]-mu2)^2)+b)
-  mu1.h = c(mu1.h, mu1)
-  sigma1.h = c(sigma1.h, sigma1)
-  mu2.h = c(mu2.h, mu2)
-  sigma2.h = c(sigma2.h, sigma2)
-  pi0.h = c(pi0.h, pi0)
-  
- 
-  if (t > 250)
+  mu1 <- rnorm(1, (sigma1_0 * sum((1 - Delta) * y) + sigma1 * mu1_0) / (sum(1 - Delta) * sigma1_0 + sigma1), sqrt(sigma1 * sigma1_0 / (sum(1 - Delta) * sigma1_0 + sigma1)))
+  notnull <- (1 - Delta) * y
+  sigma1 <- rinvgamma(1, shape = a + sum(1 - Delta) / 2, scale = 1 / 2 * sum((notnull[notnull != 0] - mu1)^2) + b)
+  mu2 <- rnorm(1, (sigma2_0 * sum(Delta * y) + sigma2 * mu2_0) / (sum(Delta) * sigma2_0 + sigma2), sqrt(sigma2 * sigma2_0 / (sum(Delta) * sigma2_0 + sigma2)))
+  notnull <- Delta * y
+  sigma2 <- rinvgamma(1, shape = a + sum(Delta) / 2, scale = 1 / 2 * sum((notnull[notnull != 0] - mu2)^2) + b)
+  mu1.h <- c(mu1.h, mu1)
+  sigma1.h <- c(sigma1.h, sigma1)
+  mu2.h <- c(mu2.h, mu2)
+  sigma2.h <- c(sigma2.h, sigma2)
+  pi0.h <- c(pi0.h, pi0)
+
+
+  if (t > 250) {
     break
+  }
 }
 ```
 
@@ -167,58 +169,57 @@ while(TRUE){
 Trace de échantillon
 
 ```{r}
-par(mfrow=c(2,3))
-plot(mu1.h[-c(1:T)],type="l",ylab="mu1",main="Trace pour mu1")
-plot(mu2.h[-c(1:T)],type="l",ylab="mu2",main="Trace pour mu2")
-plot(sigma1.h[-c(1:T)],type="l",ylab="sigma1",main="Trace pour sigma1")
-plot(sigma2.h[-c(1:T)],type="l",ylab="sigma2",main="Trace pour sigma2")
-plot(pi0.h[-c(1:T)],type="l",ylab="pi",main="Trace pour pi")
+par(mfrow = c(2, 3))
+plot(mu1.h[-c(1:T)], type = "l", ylab = "mu1", main = "Trace pour mu1")
+plot(mu2.h[-c(1:T)], type = "l", ylab = "mu2", main = "Trace pour mu2")
+plot(sigma1.h[-c(1:T)], type = "l", ylab = "sigma1", main = "Trace pour sigma1")
+plot(sigma2.h[-c(1:T)], type = "l", ylab = "sigma2", main = "Trace pour sigma2")
+plot(pi0.h[-c(1:T)], type = "l", ylab = "pi", main = "Trace pour pi")
 ```
 
 
 Histogramme de échantillon
 
 ```{r}
-par(mfrow=c(2,3))
-hist(mu1.h[-c(1:T)],freq=F,xlab="mu1",main="Histogramme pour mu1")
-hist(mu2.h[-c(1:T)],freq=F,xlab="mu2",main="Histogramme pour mu2")
-hist(sigma1.h[-c(1:T)],freq=F,xlab="sigma1",main="Histogramme pour sigma1")
-hist(sigma2.h[-c(1:T)],freq=F,xlab="sigma2",main="Histogramme pour sigma2")
-hist(pi0.h[-c(1:T)],freq=F,xlab="sigma1",main="Histogramme pour pi")
+par(mfrow = c(2, 3))
+hist(mu1.h[-c(1:T)], freq = F, xlab = "mu1", main = "Histogramme pour mu1")
+hist(mu2.h[-c(1:T)], freq = F, xlab = "mu2", main = "Histogramme pour mu2")
+hist(sigma1.h[-c(1:T)], freq = F, xlab = "sigma1", main = "Histogramme pour sigma1")
+hist(sigma2.h[-c(1:T)], freq = F, xlab = "sigma2", main = "Histogramme pour sigma2")
+hist(pi0.h[-c(1:T)], freq = F, xlab = "sigma1", main = "Histogramme pour pi")
 ```
 
 
 Autocorrelation de échantillon
 
 ```{r}
-par(mfrow=c(2,3),pin=c(1.4,1))
-acf(mu1.h[-c(1:T)],main="Autocorrelation pour mu1")
-acf(mu2.h[-c(1:T)],main="Autocorrelation pour mu2")
-acf(sigma1.h[-c(1:T)],main="Autocorrelation pour sigma1")
-acf(sigma2.h[-c(1:T)],main="Autocorrelation pour sigma2")
-acf(pi0.h[-c(1:T)],main="Autocorrelation pour pi")
+par(mfrow = c(2, 3), pin = c(1.4, 1))
+acf(mu1.h[-c(1:T)], main = "Autocorrelation pour mu1")
+acf(mu2.h[-c(1:T)], main = "Autocorrelation pour mu2")
+acf(sigma1.h[-c(1:T)], main = "Autocorrelation pour sigma1")
+acf(sigma2.h[-c(1:T)], main = "Autocorrelation pour sigma2")
+acf(pi0.h[-c(1:T)], main = "Autocorrelation pour pi")
 ```
 
 
 Densité de échantillon
 
 ```{r}
-par(mfrow=c(2,3))
-plot(density(mu1.h[-c(1:T)]),ylim=c(0,4.7),main="Densité pour mu1")
-lines(density(mu1.h[-c(1:T,151:252)]),lty=5,col="cyan")
-lines(density(mu1.h[-c(1:T,51:150)]),lty=6,col="green3")
-plot(density(mu2.h[-c(1:T)]),ylim=c(0,3.5),main="Densité pour mu2")
-lines(density(mu2.h[-c(1:T,151:252)]),lty=5,col="cyan")
-lines(density(mu2.h[-c(1:T,51:150)]),lty=6,col="green3")
-plot(density(sigma1.h[-c(1:T)]),ylim=c(0,20),main="Densité pour sigma1")
-lines(density(sigma1.h[-c(1:T,151:252)]),lty=5,col="cyan")
-lines(density(sigma1.h[-c(1:T,51:150)]),lty=6,col="green3")
-plot(density(sigma2.h[-c(1:T)]),main="Densité pour sigma2")
-lines(density(sigma2.h[-c(1:T,151:252)]),lty=5,col="cyan")
-lines(density(sigma2.h[-c(1:T,51:150)]),lty=6,col="green3")
-plot(density(pi0.h[-c(1:T)]),main="Densité pour pi")
-lines(density(pi0.h[-c(1:T,151:252)]),lty=5,col="cyan")
-lines(density(pi0.h[-c(1:T,51:150)]),lty=6,col="green3")
-legend("bottomright",legend=c("all","1-half","2-half"),lty=c(1,5,6),col=c("black","cyan","green3"))
+par(mfrow = c(2, 3))
+plot(density(mu1.h[-c(1:T)]), ylim = c(0, 4.7), main = "Densité pour mu1")
+lines(density(mu1.h[-c(1:T, 151:252)]), lty = 5, col = "cyan")
+lines(density(mu1.h[-c(1:T, 51:150)]), lty = 6, col = "green3")
+plot(density(mu2.h[-c(1:T)]), ylim = c(0, 3.5), main = "Densité pour mu2")
+lines(density(mu2.h[-c(1:T, 151:252)]), lty = 5, col = "cyan")
+lines(density(mu2.h[-c(1:T, 51:150)]), lty = 6, col = "green3")
+plot(density(sigma1.h[-c(1:T)]), ylim = c(0, 20), main = "Densité pour sigma1")
+lines(density(sigma1.h[-c(1:T, 151:252)]), lty = 5, col = "cyan")
+lines(density(sigma1.h[-c(1:T, 51:150)]), lty = 6, col = "green3")
+plot(density(sigma2.h[-c(1:T)]), main = "Densité pour sigma2")
+lines(density(sigma2.h[-c(1:T, 151:252)]), lty = 5, col = "cyan")
+lines(density(sigma2.h[-c(1:T, 51:150)]), lty = 6, col = "green3")
+plot(density(pi0.h[-c(1:T)]), main = "Densité pour pi")
+lines(density(pi0.h[-c(1:T, 151:252)]), lty = 5, col = "cyan")
+lines(density(pi0.h[-c(1:T, 51:150)]), lty = 6, col = "green3")
+legend("bottomright", legend = c("all", "1-half", "2-half"), lty = c(1, 5, 6), col = c("black", "cyan", "green3"))
 ```
-

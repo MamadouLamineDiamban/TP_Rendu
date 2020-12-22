@@ -1,0 +1,368 @@
+---
+title: "Projet en statistique non-paramétrique"
+author: Mamaou Lamine DIAMBAN
+date: "12 Décembre 2019"
+fontsize: 11pt
+geometry: margin=1in
+lang: fr
+output:
+    pdf_document:
+        latex_engine: xelatex
+        df_print: kable
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, cache = TRUE)
+```
+
+```{r}
+if (!require(pacman)) {
+  install.packages("pacman")
+  require(pacman)
+}
+
+p_load(pander, doSNOW, foreach, doParallel)
+```
+
+On considère le modèle de régression,
+
+$$Y_i=g(\frac{i}{n})+\epsilon_i, \quad 1 \le i \le n$$.
+
+On suppose ici $\epsilon_1,...,\epsilon_n$ des variables aléatoires centrées et de variance $\sigma^2$ et dépendantes.  
+Elles vérifient la relation,
+
+$$\epsilon_n = \eta_n \sqrt{\sigma^2(1 - \alpha) + \alpha\epsilon^2_{n-1}}, \quad 0 \le i \le 1$$,
+
+avec $(\eta_n)_{n \ge 1}$ est une suite iid centrée de loi normal $\mathcal{N}(0,1)$ et $\eta_n$ est indépendante de $\epsilon_1,...,\epsilon_{n - 1}$.  
+
+On définit, $\hat{g}$ l'estimateur de g, par:
+
+$$\hat{g}(x) = \frac{1}{nh} \sum^n_{i=1}Y_i K(\frac{x - X_i}{h})$$
+
+
+$h$ est la fenêtre et K  est un noyau pair et à support compact. L’objectif de ce projet est d’étudier empiriquement un bon choix de la fenêtre $h$. On prendra par la suite que:
+
+$$g(x) = \sin(2 \pi x)$$
+
+\newpage
+#### 1. Représenter sur un même graphique le nuage des points $(\frac{i}{n}, Y_i)_{1 \le i \le n}$, la fonction g et l'estimateur $\hat{g}$ pour un choix K, de $\alpha$ et de $\sigma^2$ que vous préciserz.
+
+Afin de trouver le modèle de regression $Y$, nous avons d'abord fixé les paramètres des erreurs($\epsilon_i$):  
+$\sigma^2 = 0.0225$  
+$\alpha = 0.05$.  
+
+Puis pour calculer l'estimateur $\hat{g}$, on a pris un noyeau gaussien pour $K, K(u) = \frac{1}{\sqrt{2\pi}}\exp(\frac{-u^2}{2})$ et une fenêtre $h = 0.03$.  
+
+
+```{r}
+set.seed(1010)
+n <- 300
+alpha <- .05
+sigma <- 0.15
+X <- (1:n) / n
+
+
+eta <- rnorm(n + 1)
+eps_0 <- vector("double", n + 1)
+# on echantillone eps0
+eps_0[1] <- rnorm(1, mean = 0, sd = sigma)
+for (i in 2:n + 1) {
+  eps_0[i] <- eta[i] * sqrt(sigma^2 * (1 - alpha) + alpha * eps_0[i - 1]^2)
+}
+
+eps <- eps_0[2:(n + 1)]
+
+g <- function(x) {
+  sin(2 * pi * x)
+}
+
+Y <- g(X) + eps
+
+# on suppose que noyau est gaussian
+K <- function(u) {
+  1 / sqrt(2 * pi) * exp(-u^2 / 2)
+}
+
+# g_hat est l'estimateur de g
+h <- 0.03
+g_hat <- function(x, h = 0.05) {
+  sum(Y * K((x - X) / h)) / (n * h)
+}
+```
+
+
+
+```{r}
+plot(X, Y,
+  xlab = expression(i / n), ylab = expression(Y),
+  cex = 0.75, pch = 19, main = "Nuage de points Y avec alpha = 0.05 et sigma = 0.15",
+)
+lines(X, sapply(X, g), lwd = 4, col = "orange")
+lines(X, sapply(X, g_hat, h = 0.05), lwd = 4, col = "purple")
+legend("topright", c("g", expression(hat(g))),
+  lwd = 6, col = c("orange", "purple")
+)
+grid()
+```
+
+Pour un choix des paramètres cités ci-dessous, on peut voir que $Y$ a une forme sinisoïdale et la fonction $g$ et son estimateur $\hat{g}$ sont très proches.  
+Et dans notre cas, lorsque $Y$ augmente, $g$ est sous-estimée par $\hat{g}$. Et inversement, lorsque $Y$ diminue, la fonction $g$ est sur-estimée par $\hat{g}$.
+
+\newpage
+#### 2. Visualisez, selon différentes valeurs de $h$, la situation de sous et de sur-lissage.  
+```{r}
+plot(X, Y,
+  xlab = expression(i / n),
+  ylab = expression(Y), cex = .55,
+  pch = 19, ylim = c(-1.6, 1.7),
+  main = "Comparaison de différentes valeurs de h"
+)
+lines(X, sapply(X, g_hat, h = 0.001), col = "gray", lwd = 1)
+lines(X, sapply(X, g_hat, h = 0.01), col = "orange", lwd = 4)
+lines(X, sapply(X, g_hat, h = 0.05), col = "limegreen", lwd = 4)
+lines(X, sapply(X, g_hat, h = 0.1), col = "purple", lwd = 4)
+lines(X, sapply(X, g_hat, h = 0.2), col = "red", lwd = 4)
+legend("topright", c("h=0.001", "h=0.01", "h=0.05", "h=0.1", "h=0.2"),
+  lwd = 6, col = c("gray", "orange", "limegreen", "purple", "red")
+)
+grid()
+```
+
+Nous avons fait varier la fenêtre $h$ entre $10{-3}$ et $0.2$.  
+Et il en résulte que pour des valeurs de $h \in [0.001,..., 0,1]$, la fonction $g$ est sur-lissée.  
+Tant disque pour des valeurs de $h \ge 0.1$, la fonction $g$ est sous-lissée.  
+On peut donc conclure que la vraie valeur du paramètre de lissage $h$ se situe dans la décimale 2.
+
+#### 3. Ecrire un programme qui calcule la valeur optimale du paramètre de lissage en fonction du ASE 
+
+`ASE (Average square error)` est définit par,
+$$ASE(h)=\frac{1}{h}\sum^n_{i=1}(\hat{r}(x_{i})-r(x_{i}))^2$$
+Soit $\hat{h}_{0}$ cette valeur optimale du ASE(h), c'est-à-dire,
+$$\hat{h}_{0}=argmin_{h>0}ASE(h)$$
+
+```{r}
+ASEoptimale <- function(X) {
+  grid <- seq(0.01, 0.08, by = 0.001)
+  ase <- vector("double", length(grid))
+  for (i in 1:length(grid)) {
+    ase[i] <- mean((sapply(X, g_hat, h = grid[i]) - g(X))^2)
+  }
+  invisible(list(
+    h_opt = grid[which.min(ase)],
+    ase_opt = ase[which.min(ase)]
+  ))
+}
+
+pander(t(data.frame(
+  `h optimale` = ASEoptimale(X)$h_opt,
+  `ASE optimale` = round(ASEoptimale(X)$ase_opt, 4)
+)))
+```
+
+\newpage
+## 4. Même question, en remplacant ASE(h) pour le critère de validation croisé CV(h)
+
+`CV(h)` est définit comme suit,
+$$CV(h)=\frac{1}{h}\sum^n_{i=1}(\frac{\hat{r}(x_{i})-Y_{i}}{1-L_{i,i}})^2$$   
+avec $L_{i,i}=\frac{K(0)}{nh}$. On pose,
+$$\hat{h}=argmin_{h>0}CV(h)$$
+
+```{r}
+CVoptimale <- function(X, Y, n) {
+  grid <- seq(0.01, 0.08, by = 0.001)
+  cv <- vector("double", length(grid))
+  Lii <- vector("double", length(grid))
+  for (i in 1:length(grid)) {
+    Lii <- K(0) / (n * grid[i])
+    cv[i] <- mean(((sapply(X, g_hat, h = grid[i]) - Y) / (1 - Lii))^2)
+  }
+  invisible(list(
+    h_opt = grid[which.min(cv)],
+    cv_opt = cv[which.min(cv)]
+  ))
+}
+
+pander(t(data.frame(
+  `h optimale` = CVoptimale(X, Y, n)$h_opt,
+  `CV optimale` = round(CVoptimale(X, Y, n)$cv_opt, 4)
+)))
+```
+
+
+```{r}
+# Visualiser la valeur optimale
+plot(X, Y,
+  xlab = expression(i / n), ylab = expression(Y), cex = 0.75,
+  main = "Illustration avec ASE(h) et CV(h)", pch = 19
+)
+lines(X, sapply(X, g_hat, h = 0.026), col = "orange", lwd = 4)
+lines(X, sapply(X, g_hat, h = 0.032), col = "purple", lwd = 4)
+legend("topright",
+  legend = c("h_ASE=0.026", "h_CV=0.032"),
+  col = c("orange", "purple"), lwd = 6
+)
+grid()
+```
+
+Bien que le paramètre de lissage soit supérieur avec la crosse validation($h = 0.032$), il apparaît cependant que toutes les deux fournissent un lissage très satisfaisant.
+
+\newpage
+#### 5. Illustrer le comportement asymptotique lorsque $n$ tend vers l'infini de $\frac{ASE(\hat{h})}{ASE(\hat{h}_{0})}$. 
+
+
+```{r}
+# On augmente n de 50 à 1000
+nrange <- seq(50, 1000, by = 10)
+aseprop <- vector("double", length(nrange))
+
+myCluster <- makeCluster(6, type = "SOCK")
+registerDoParallel(myCluster)
+
+aseprop <- foreach(j = 1:length(nrange), .combine = "c") %dopar% {
+  n <- nrange[j]
+  X <- (1:n) / n
+  eta <- rnorm(n + 1)
+  eps_0 <- vector("double", n + 1)
+  eps_0[1] <- rnorm(1, mean = 0, sd = sigma)
+
+  for (i in 2:n + 1) {
+    eps_0[i] <- eta[i] * sqrt(sigma^2 * (1 - alpha) + alpha * eps_0[i - 1]^2)
+  }
+
+  eps <- eps_0[2:(n + 1)]
+  Y <- g(X) + eps
+
+  g_hat <- function(x, h = 0.05) {
+    sum(Y * K((x - X) / h)) / (n * h)
+  }
+  h_hat <- CVoptimale(X, Y, n)$h_opt
+  h0_hat <- ASEoptimale(X)$h_opt
+  mean((sapply(X, g_hat, h = h_hat) - g(X))^2) /
+    mean((sapply(X, g_hat, h = h0_hat) - g(X))^2)
+}
+
+stopCluster(myCluster)
+
+
+plot(nrange, aseprop, pch = 19)
+grid()
+```
+
+Lorsque $n \to \infty$, le rapport des erreurs du paramètre de lissage est presque constante et est proche de 1. Cela est d'autant plus marquant lorsque $n > 600$, toutes les valeurs sont comprises entre $1 et 1.5$. Tant disque lorsque $n < 600$, on peut voir qu'il existe des valeurs aberrantes pouvant aller jusqu'à $\approx 3$. 
+
+#### 6. Illustrer le comportement asymptotique lorsque n tend vers l'infini de $\frac{\hat{h}}{\hat{h}_{0}}$.
+
+```{r}
+# On augmente n de 50 à 1000
+nrange <- seq(50, 1000, by = 10)
+hprop <- vector("double", length(nrange))
+
+myCluster <- makeCluster(6, type = "SOCK")
+registerDoParallel(myCluster)
+
+hprop <- foreach(j = 1:length(nrange), .combine = "c") %dopar% {
+  n <- nrange[j]
+  X <- (1:n) / n
+  eta <- rnorm(n + 1)
+  eps_0 <- vector("double", n + 1)
+  eps_0[1] <- rnorm(1, mean = 0, sd = sigma)
+  for (i in 2:n + 1) {
+    eps_0[i] <- eta[i] * sqrt(sigma^2 * (1 - alpha) + alpha * eps_0[i - 1]^2)
+  }
+  eps <- eps_0[2:(n + 1)]
+  Y <- g(X) + eps
+  h_hat <- CVoptimale(X, Y, n)$h_opt
+  h0_hat <- ASEoptimale(X)$h_opt
+  h_hat / h0_hat
+}
+
+stopCluster(myCluster)
+
+
+plot(nrange, hprop, pch = 19)
+abline(h = mean(hprop), col = "orange")
+grid()
+```
+
+On a une asymétrie du rapport $\frac{\hat{h}}{\hat{h}_{0}}$ qui ne s'atténue pas, lorsque $n$ tend vers l'infini avec une moyenne $\approx 1$.
+
+
+#### 7. Vérifier, par simulations, que $n^{3/10}(\hat{h}-\hat{h}_{0})$ a un comportement gaussien.
+
+```{r}
+hdiff <- vector("double", 500)
+
+myCluster <- makeCluster(6, type = "SOCK")
+registerDoParallel(myCluster)
+
+hdiff <- foreach(j = 1:500, .combine = "c") %dopar% {
+  n <- 300
+  X <- (1:n) / n
+  eta <- rnorm(n + 1)
+  eps_0 <- vector("double", n + 1)
+  eps_0[1] <- rnorm(1, mean = 0, sd = sigma)
+  for (i in 2:n + 1) {
+    eps_0[i] <- eta[i] * sqrt(sigma^2 * (1 - alpha) + alpha * eps_0[i - 1]^2)
+  }
+  eps <- eps_0[2:(n + 1)]
+  Y <- g(X) + eps
+  h_hat <- CVoptimale(X, Y, n)$h_opt
+  h0_hat <- ASEoptimale(X)$h_opt
+  n^(3 / 10) * (h_hat - h0_hat)
+}
+
+stopCluster(myCluster)
+
+plot(density(hdiff),
+  lwd = 4, col = "orange",
+  main = "empirical distribution"
+)
+grid()
+```
+
+$n^{3/10}(\hat{h}-\hat{h}_{0})$ suit bien une loi $\mathcal{N}(-0.0076, 0.037^2)$
+
+\newpage
+#### 8. Que peut être la loi asymptotique de $n(ASE(\hat{h})-ASE(\hat{h}_{0}))$.
+
+```{r}
+asediff <- vector("double", 500)
+
+myCluster <- makeCluster(6, type = "SOCK")
+registerDoParallel(myCluster)
+
+asediff <- foreach(j = 1:500, .combine = "c") %dopar% {
+  n <- 300
+  X <- (1:n) / n
+  eta <- rnorm(n + 1)
+  eps_0 <- vector("double", n + 1)
+  eps_0[1] <- rnorm(1, mean = 0, sd = sigma)
+  for (i in 2:n + 1) {
+    eps_0[i] <- eta[i] * sqrt(sigma^2 * (1 - alpha) + alpha * eps_0[i - 1]^2)
+  }
+  eps <- eps_0[2:(n + 1)]
+  Y <- g(X) + eps
+  h_hat <- CVoptimale(X, Y, n)$h_opt
+  h0_hat <- ASEoptimale(X)$h_opt
+  g_hat <- function(x, h = 0.05) {
+    sum(Y * K((x - X) / h)) / (n * h)
+  }
+  n * (mean((sapply(X, g_hat, h = h_hat) - g(X))^2) - mean((sapply(X, g_hat, h = h0_hat) - g(X))^2))
+}
+
+stopCluster(myCluster)
+
+plot(density(asediff),
+  lwd = 4, col = "orange",
+  main = "empirical distribution"
+)
+grid()
+```
+
+$n(ASE(\hat{h})-ASE(\hat{h}_{0}))$ suit une loi de Poisson.
+
+#### 9. Conclure quant au critère $CV(h)$.
+D'une part, la vrai fonction $r(x)$ nous a été donnée de sorte qu'on puisse facilement calculer $ASE(h)=\frac{1}{h}\sum^n_{i=1}(\hat{r}(x_{i})-r(x_{i}))^2$ et trouver la fenêtre optimale qui rend $ASE$ minimum. 
+Cependant, dans la pratique, il est impossible de connaître la vraie fonction qui produit les données $r(x)$.
+
+Et d'autre part, même si $\hat{h}$ est sensiblement plus grande que $\hat{h}_0$, les résultats montrent que, $\frac{ASE(\hat{h})}{ASE(\hat{h}_{0})}$ et $\frac{\hat{h}}{\hat{h}_{0}}$ sont respectivement proches de 1, ce qui nous permet de conclure que dans la pratique, nous pouvons utiliser la méthode $CV(h)$ à la place de $ASE$ pour calculer la fenêtre optimale h.

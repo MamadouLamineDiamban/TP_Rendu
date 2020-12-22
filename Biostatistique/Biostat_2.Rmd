@@ -1,0 +1,268 @@
+---
+title: "Script Histology"
+author: "DIAMBAN Mamadou Lamine"
+date: "30/11/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+test <- readRDS("data_test_histology.rds")
+for (v in c("sex", "tissue_status", "histology", "os_months", "dead", 
+            "dead_at_24_months", "t", "n", "m", "tnm_stage", "tnm_grade")) {
+  test[[v]] <- as.factor(x = test[[v]])
+}
+
+d <- readRDS("data_learn.rds")
+
+head(d[, 1:6])
+```
+
+Nous disposons d'un jeux de données de `r nrow(d)` individus et `r ncol(d)` variables. Le but étant de prédire les valeurs histologiques en utilisant les valeurs d'expression génique, les attributs histologiques et cliniques fournis.  
+Pour cela, nous commençons par quelques statistiques descriptives avant de proposer un modèle.
+
+
+# Statistiques descriptives
+```{r}
+table(d$histology, useNA = "ifany")
+```
+
+La variable histologie contient 2 modalités à part égale: TCGA-LUAD(273) et TCGA-LUSC(273)
+
+```{r}
+table(d$sex, d$histology, useNA = "ifany")
+```
+
+
+```{r}
+boxplot(d$age ~ d$histology)
+```
+
+J'ai transformé la variable `histology` en quantitative. La modalité **TCGA-LUAD** est codé en **1** et la modalité **TCGA-LUSC** en **0** puis j'ai sélectionné le nom des gènes.  
+```{r}
+h <- as.numeric(d$histology == "TCGA-LUAD")
+
+gs <- colnames(d)[13:1012]
+```
+
+# Préparation pour la modélisation
+
+## ACP
+J'ai réalisé une ACP pour voir s'il y'avait des individus aberrants dans les données
+```{r}
+testd <- cbind(age = d$age, sex = d$sex, histology = d$histology, d[, gs])
+testd$sex <- as.numeric(testd$sex)
+testd$histology <- as.numeric(testd$histology)
+library(FactoMineR)
+library(factoextra)
+
+res.pca <- PCA(testd, graph = FALSE, scale.unit = TRUE)
+
+fviz_pca_ind(res.pca)
+```
+
+On voit que l'individu **TCGA-21-5782-01A** présente des caractéristiques peu communes avec les autres individus.  
+J'ai jugé alors nécessaire de le retirer du jeux de données.
+
+```{r}
+h <- h[-which(rownames(d) == "TCGA-21-5782-01A")]
+d <- d[-which(rownames(d) == "TCGA-21-5782-01A"), ]
+dim(d)
+length(h)
+```
+
+## Calcule des p-valeur de chaque gène ~ histology
+J'ai fait un modèle avec chaque gène par rapport à l'histolgie pour récupérer la p-valeur et la valeur de beta.
+```{r}
+res <- sapply(gs, function(g) {
+  # print(g)
+  m <- glm(c(h, 0, 0, 1, 1) ~ c(d[[g]], 0, max(d[, gs]), 0, max(d[, gs])),
+    family = binomial(logit)
+  )
+  b <- m$coefficients[[2]]
+  pv <- summary(m)$coefficients[2, 4]
+  c(pval = pv, beta = b)
+})
+```
+
+
+## Volcano plot
+Puis, pour pouvoir sélectionner les gènes qui pourraient être adéquats à notre modèle, je me suis basé sur le volcano plot en ne prenant que les variables qui étaient très significatives et les variables qui se trouvaient sur les extrémités.
+```{r}
+res <- t(res)
+res <- as.data.frame(res)
+
+plot(res$beta, -log10(res$pval), main = "volcano plot")
+text(res$beta, -log10(res$pval), rownames(res), cex = .7)
+```
+
+# Modélisation
+J'ai réalisé un premier modèle en ne prenant que les gènes dont le log de leur p-valeur est supérieur à 30.  
+Puis j'ai utilisé un step pour trouver le meilleur modèle parmi les gènes choisis.
+```{r}
+model1 <- glm(
+  formula = h ~ LINC02428 + DLX6 + SERPINB2 + SERPINB5 + CDHR1 + KRT33A +
+    TMEM189 + MCM2 + SPDEF + LINC01503 + SLC41A2 + SMO + FOXL2 + KRT42P + SNCA,
+  data = d,
+  family = binomial(link = "logit")
+)
+
+summary(object = model1)
+step(model1, direction = "backward")
+```
+
+```{r}
+model1 <- glm(
+  formula = h ~ SERPINB2 + SERPINB5 + CDHR1 + KRT33A + TMEM189 + MCM2 + SPDEF +
+    LINC01503 + SNCA,
+  data = d,
+  family = binomial(link = "logit")
+)
+
+pred <- predict.glm(object = model1, newdata = test, type = "response")
+idx <- pred <= 0.5
+pred[idx] <- h == 1
+pred[!idx] <- h == 0
+table(pred, useNA = "ifany")
+```
+
+J'ai utilisé le test de Howmer-Lemeshow pour déterminer si les probabilités prévues diffèrent des probabilités observées d'une façon que ne prévoit pas la loi binomiale.
+```{r}
+ResourceSelection::hoslem.test(h, model1$fitted.values)
+```
+
+La p-valeur du modèle1 est inférieure au risque $\alpha = .05$. Le modèle n'est donc pas adéquat.
+
+En suite, à partir du précédent modèle, j'ai rajouté des variables qui sont en lien avec l'histology. Puis avec la fonction `step` j'ai sélectionné le meilleur modèle.
+
+```{r}
+model2 <- glm(
+  formula = h ~ SERPINB5 + CDHR1 + MCM2 + LINC01503 + TMEM8A + WDPCP + ERCC3 + UBE2G1 + KPNA1,
+  data = d,
+  family = binomial(link = "logit")
+)
+
+# h ~ SERPINB5  + CDHR1 + TMEM8A + WDPCP + KPNA1
+# h ~ SERPINB5  + CDHR1 + MCM2 + LINC01503 + TMEM8A + WDPCP + ERCC3 + UBE2G1 + KPNA1
+# step(model2, direction = "backward")
+pred <- predict.glm(object = model2, newdata = test, type = "response")
+idx <- pred <= 0.5
+pred[idx] <- h == 1
+pred[!idx] <- h == 0
+table(pred, useNA = "ifany")
+
+ResourceSelection::hoslem.test(h, model2$fitted.values)
+```
+
+Ce modèle prédit très bien les classes. Mais comme le précédent, il n'est pas adéquat.
+
+
+```{r}
+model3 <- glm(
+  formula = h ~ SERPINB5 + CDHR1 + WDPCP + MCM2 + UBE2G1 + TMEM8A,
+  data = d,
+  family = binomial(link = "logit")
+)
+
+pred <- predict.glm(object = model3, newdata = test, type = "response")
+idx <- pred <= 0.5
+pred[idx] <- h == 1
+pred[!idx] <- h == 0
+table(pred, useNA = "ifany")
+ResourceSelection::hoslem.test(h, model3$fitted.values)
+```
+La p-valeur du test de Hosmer-Lemeslow est > 0.05, on consreve H0 et les valeurs prédites et observées concordent bien, le modèle est bon.
+
+## Courbe ROC
+```{r}
+ROC1 <- pROC::roc(response = h, model1$fitted.values)
+ROC2 <- pROC::roc(response = h, model2$fitted.values)
+ROC3 <- pROC::roc(response = h, model3$fitted.values)
+plot(ROC1, xlim = c(1, 0), col = 2)
+lines(ROC2, xlim = c(1, 0), col = 4)
+lines(ROC3, xlim = c(1, 0), col = "gray")
+legend("bottomright", lty = 1, c("modèle1", "modèle2", "gray"), col = c("2", "4", "gray"))
+```
+
+Le modèle 1 et le modèle 2 ont seniblement le même AUC(proche de 1) et sont globalement meilleur que le modèle 3. Mais comme les premiers sont surement surestimés, j'ai gardé le modèle 3. 
+
+
+## Anova entre le modele 3 et le modele 2
+```{r}
+anova(model3, model2, test = "Chisq")
+```
+
+Le test est très significatif. Les termes utilisés dans le modèle final sont donc adéquats.
+
+## Test de Wald
+```{r}
+lapply(names(model3$model)[-1], function(x) lmtest::waldtest(model3, x))
+```
+
+Tous les termes sont significatifs aux seuil $\alpha = .05$
+
+## Conclusion
+```{r}
+summary(object = model3)
+```
+
+Tous les termes de notre modèle sont significatifs. Les gènes qui influencent le plus l'histology sont des gènes à codage de protéine. Notamment les gène SERPINB5, CDHR1 et MCM2.  
+D'autre part ces gènes contribuent de manière négative au cancer du poumon. Plus les individus possédent ces gènes moins ils ont de chance d'avoir ce type de cancer. 
+
+```{r}
+layout(matrix(1, 1), respect = TRUE)
+lapply(names(model3$model)[-1], function(x) boxplot(d[[x]] ~ h, main = paste0("h~", x)))
+```
+
+```{r}
+library(Boruta)
+tests <- Boruta(h ~ ., data = d[, gs])
+
+final_test <- TentativeRoughFix(tests)
+
+attri <- getSelectedAttributes(final_test, withTentative = FALSE)
+
+attri <- attri[-which(attri == "`BBOX1-AS1`" | attri == "`PCED1B-AS1`" | attri == "`PCED1B-AS1`")]
+
+boruta_df <- attStats(final_test)
+
+at <- as.vector(attri)
+
+mytrain <- d[, attri]
+```
+
+
+```{r}
+model2 <- glm(
+  formula = h ~ .,
+  data = mytrain,
+  family = binomial(link = "logit")
+)
+```
+
+
+```{r}
+# step(model2)
+
+
+modele_fi <- glm(
+  formula = h ~ CRTC3 + LOC100289473 + SERPINB5 + MRPS2 + WDPCP + PIM1 +
+    TM2D1 + PITPNA + MCM2, family = binomial(link = "logit"),
+  data = mytrain
+)
+
+summary(object = modele_fi)
+
+pred <- predict.glm(object = modele_fi, newdata = test, type = "response")
+idx <- pred <= 0.5
+pred[idx] <- h == 0
+pred[!idx] <- h == 1
+table(pred, useNA = "ifany")
+
+ResourceSelection::hoslem.test(h, modele_fi$fitted.values)
+
+# step(modele_fi)
+```

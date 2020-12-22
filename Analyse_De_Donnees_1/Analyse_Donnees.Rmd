@@ -1,0 +1,543 @@
+---
+title: "Compte Rendu Série Temporelle"
+author: "Mamadou Lamine DIAMBAN"
+date: "04 Décembre 2018"
+fontsize: 11pt
+geometry: margin=1in
+lang: fr
+fontfamily: times
+output:
+    pdf_document:
+        toc: false
+        fig_height: 3.2
+---
+
+```{r warning=FALSE, message=FALSE}
+library(tidyverse)
+library(kableExtra)
+library(factoextra)
+library(FactoMineR)
+library(GGally)
+library(ggthemes)
+library(plotly)
+library(gridExtra)
+library(cluster)
+library(lmtest)
+```
+
+
+
+## Introduction
+```{r }
+chenilles <- read.table("../Data/proc-pin.dat.txt")
+dim(chenilles)
+```
+
+
+Cette lecture étudie l’influence de certaines caractéristiques de peuplements forestiers sur la densité de la processionnaire.
+L’unité, qui représente ici l’observation, est une parcelle forestière de 10 hectares d’un seul tenant. On a une seule valeur de chaque variable pour chaque parcelle. En fait, pour tenir compte d’un éventuel manque d’homogénéité, dans chaque parcelle, on a mesuré les variables sur plusieurs placettes de 5 ares chacune. Et la valeur attribuée à la parcelle est la moyenne des valeurs obtenue pour ses placettes.    
+
+La base de données contient 58 individus et 11 variables qui se présentent comme suit:    
+  - Alti : altitude (en m)  
+  - Pent : pente (en degrés)  
+  - NbPi : nombre de pins par placette  
+  - Haut : hauteur (en m) du pin central de la placette Diam diamètre de ce pin   
+  - Dens : note de densité de la végétation de la placette Orie orientation (de 1 vers le sud à 2 vers le nord)   
+  - Hdom : hauteur (en m) de l’arbre dominant   
+  - Stra : nombre moyen de strates de végétation   
+  - Mela : mélange du peuplement (de 1, pas mélangé à 2, mélangé)   
+  - NbNi : densité de processionnaire (nombre moyen de nids par arbre)    
+  
+
+
+
+
+## Idendification des problèmes
+```{r}
+head(chenilles) %>%
+  kable(booktab = T) %>%
+  kable_styling(full_width = T)
+```
+
+
+### Structure des données
+On renomme le nom des variables et des individus.
+```{r}
+names(chenilles) <- c("Alti", "Pent", "NbPi", "Haut","Diam", "Dens", 
+                      "Orie", "Hdom", "Stra", "Mela", "NbNi")
+rownames(chenilles) <- paste("Parcelle:",1:nrow(chenilles), sep="")
+head(chenilles)  %>%
+  kable(caption = "Entête de la base de données", booktabs = T) %>%
+  kable_styling(position = "center",
+                latex_options = c("striped", "hold_position"))
+```
+
+### Statistiques descriptives
+```{r warning=FALSE}
+attach(chenilles)
+```
+   
+     
+     
+### Graphiques Boxplot
+```{r echo=FALSE}
+p <- chenilles %>%
+  keep(is.numeric) %>% gather() %>% 
+  ggplot(aes(x="",y=value, fill=key))+
+  geom_boxplot()+
+  facet_wrap(~key , scales = "free") +
+  stat_summary(fun.y=mean, geom="point", shape=20, size=1, color="red")+
+  theme_fivethirtyeight()+
+  ggtitle("Boxplot chenilles")+
+  theme(legend.position = "none",panel.grid = element_blank())+
+  coord_flip()
+ggplotly(p)
+```
+
+
+
+## Nettoyage des données
+### Détection des valeurs aberrantes
+
+```{r echo=FALSE}
+
+valeurs_extremes <- function(df){
+  list_valeur <- list()
+  lignes <- c()
+
+  for(j in 1:ncol(df)){ 
+    if(is.numeric(df[,j])){
+      q <- quantile(df[,j], probs = c(.25,.5,.75))
+      h <- 1.5 * IQR(df[,j])
+      
+      pivotd <- q[3] + h
+      pivotg <- q[1] - h
+      valeur_extrem <- df[,j][df[,j] > pivotd | df[,j] < pivotg]
+      
+      if(length(valeur_extrem) > 0){
+        individu <- which(df[,j] %in% valeur_extrem)
+        lignes <- c(lignes, individu)
+        list_valeur[[names(df)[j]]] <- paste("Ligne:",individu, "|", 
+                                              "Valeur:", valeur_extrem, sep = " ")
+      }
+    }
+  }
+  invisible(list(valeurs=list_valeur, lignes=lignes))
+}
+
+res_extrem <- valeurs_extremes(chenilles)
+
+res_extrem$valeurs
+```
+
+
+### Supression des individus aberrants et de la variable supplémentaire
+
+Nous considèrons par la suite de l'étude que les individus aberrants ne participeront pas à la construction des plans factoriels en raison de l'influence néfaste qu'ils exerceraient. De même, la variable Nombre moyen de nids par arbre (NbNi) ne sera pas considérée dans l'étude de l'ACP puisqu'il s'agit de notre variable exogène.    
+  - Variables actives:            colonnes 1 à 10   
+  - Variables suppélmentaires:    colonne 11   
+  - Individus supplémentaires:    les lignes 21 24 39 45 34 27 38   
+  - Individus actifs:             les lignes restantes
+
+```{r}
+chenilles_actives <- chenilles[-res_extrem$lignes, -11]
+```
+
+
+### Vérification des modifications
+```{r echo=FALSE}
+minx <- apply(chenilles_actives, 2, min)
+maxx <- apply(chenilles_actives, 2, max)
+etendux <- apply(chenilles_actives, 2, function(x)max(x)-min(x))
+meanx <- apply(chenilles_actives, 2, mean)
+medianx <- apply(chenilles_actives, 2, median)
+sdx <- apply(chenilles_actives, 2, sd)
+
+suma <- rbind(Min= minx,Max=maxx, Etendue= etendux, Mean=meanx, Median=medianx, 'Ecart-Type'=sdx)
+round(t(suma),2) %>%
+  kable( booktabs = T) %>%
+  kable_styling(position = "center",
+                latex_options = c("striped", "hold_position"))
+```
+
+```{r echo=FALSE}
+p <- chenilles_actives %>%
+  keep(is.numeric) %>% gather() %>% 
+  ggplot(aes(x="",y=value, fill=key))+
+  geom_boxplot() + facet_wrap(~key , scales = "free") +
+  stat_summary(fun.y=mean, geom="point", shape=20, size=1, color="red")+
+  theme_fivethirtyeight()+
+  ggtitle("Boxplot variables_actives")+
+  theme(legend.position = "none", panel.grid = element_blank())+
+  coord_flip()
+ggplotly(p)
+
+```
+
+
+### Matrice de corrélation
+```{r fig.width=5, fig.height=5.5, fig.align="center"}
+ggcorr(chenilles_actives, label = T, low = "#924A51",
+       mid = "#70A5D4", high = "#FE9F14")
+```
+
+## ACP
+
+
+```{r}
+res.acp <- PCA(chenilles, ind.sup = c(21, 24, 39, 45 ,34, 27, 38 ), 
+               quanti.sup = 11, graph = F)
+
+# Cette commande équivaut à 
+# res.acp <- PCA(chenilles_actives, graph = F)
+# Sauf que la première nous permettera de rajouter sur les graphes, 
+# les variables et individus supplémentaires
+```
+
+
+### Valeurs propres
+```{r}
+get_eigenvalue(res.acp)  %>%
+  kable(caption = "Valeurs Propres et Inerties", booktabs = T) %>%
+  kable_styling(position = "center",
+                latex_options = c("striped", "hold_position"))
+```
+
+
+```{r}
+fviz_eig(res.acp, addlabels = TRUE,labelsize = 2)
+```
+ 
+
+```{r echo=FALSE, message=FALSE}
+# Code pour synthétiser les diférentes valeurs des individus
+# Ce code est dispensable
+
+ind_coord1 <- as.data.frame(res.acp$ind$coord)[1:3]
+ind_coord1 <- ind_coord1[order(ind_coord1$Dim.1, decreasing = T), ]
+ind_coord1$row <- rownames(ind_coord1)
+ind_cord1 <- ind_coord1[,c(1,4)]
+
+
+ind_contrib1 <- as.data.frame(res.acp$ind$contrib)[1:3]
+ind_contrib1 <- ind_contrib1[order(ind_contrib1$Dim.1, decreasing = T), ]
+ind_contrib1$row <- rownames(ind_contrib1)
+ind_cotrib1 <- ind_contrib1[, c(1, 4)]
+
+ind_cos1 <- as.data.frame(res.acp$ind$cos2)[1:3]
+ind_cos1 <- ind_cos1[order(ind_cos1$Dim.1, decreasing = T), ]
+ind_cos1$row <- rownames(ind_cos1)
+ind_co1 <- ind_cos1[, c(1, 4)]
+
+
+
+ind_coord2 <- as.data.frame(res.acp$ind$coord)[1:3]
+ind_coord2 <- ind_coord2[order(ind_coord2$Dim.2, decreasing = T), ]
+ind_coord2$row <- rownames(ind_coord2)
+ind_cord2 <- ind_coord2[, c(2, 4)]
+
+
+ind_contrib2 <- as.data.frame(res.acp$ind$contrib)[1:3]
+ind_contrib2 <- ind_contrib2[order(ind_contrib2$Dim.2, decreasing = T), ]
+ind_contrib2$row <- rownames(ind_contrib2)
+ind_cotrib2 <- ind_contrib1[, c(2, 4)]
+
+ind_cos2 <- as.data.frame(res.acp$ind$cos2)[1:3]
+ind_cos2 <- ind_cos2[order(ind_cos2$Dim.2, decreasing = T), ]
+ind_cos2$row <- rownames(ind_cos2)
+ind_co2 <- ind_cos2[, c(2, 4)]
+
+
+resu <- full_join(ind_cord1,ind_cotrib1, by="row") %>%
+        full_join(ind_co1, by="row")  %>%
+        full_join(ind_cord2, by="row") %>% 
+        full_join(ind_cotrib2, by="row") %>%
+        full_join(ind_co2, by="row")
+
+
+rownames(resu) <- resu$row
+
+resume <- resu[, c(1, 3:7)]
+colnames(resume) <- c("Coord.1", "Contrib.1", "Cos2.1",
+                      "Coord.2", "Contrib.2", "Cos2.2")
+
+resume  %>%
+  kable(longtable = TRUE, 
+      booktabs = TRUE, caption = "Résultats ACP") %>% 
+  add_header_above(c("Individus ", "Axe 1" = 3, "Axe 2" = 3)) %>% 
+  kable_styling(latex_options = c("repeat_header"))
+```
+
+
+## Interprétation dans l'espace des individus
+```{r fig.height=4}
+fviz_pca_ind (res.acp, col.ind = "cos2", repel = TRUE,
+              gradient.cols = c("#00AFBB", "#E7B800","#FC4E07"))
+```
+
+
+Pour mieux illustrer le résultat de cette graphique, nous avons analysé les données sources en nous servant des indications de qualité de représentation (cos2). Ces données sont présentées dans les tableaux 7 et 8 de l’annexe. Elles montrent que le premier axe sépare les parcelles en deux groupes: d'une part les parcelles qui ont un nombre moyen de strate et une hauteur d'arbre assez élevé et d'autre part celles qui ont le nombre de strate assez faible. Tant disque le deuxième axe oppose les parcelles qui ont des arbres épais à celles qui ont des arbres fines.   
+Ce qui nous permet de décrire la carte des individus comme suit:  
+Les Parcelles positionnées dans le quadrant supérieur droit sont celles qui possèdent une quantité moyenne de strate assez élevée. Les parcelles occupant le quadrant inférieur droit ont, elles aussi, une quantité de strate globale élevée mais se distinguent essentiellement par un diamètre d'arbre plus faible. Le quadrant gauche contient les parcelles qui ont un nombre de strate faible.   
+Il apparaît aussi que les individus qui contribuent le plus à l'inertie expliquée par le premier axe sont les Parcelles 16, 12, 40, 13 et 28. Leurs contributions avoisinent les 36%, (8.73 + 8.71 + 7.15 + 6.00 + 5.10 = 35.69). Ces individus sont les plus excentrés dans la direction du premier axe.   
+Tandis que la contribution sur le deuxième axe est relativement réalisée par les Parcelles 46, 8, 31, 23 et 7 (10.77 + 7.03 + 7.00 + 6.96 + 6.55 = 38.31\%).   
+Ceux-ci vient renforcer notre précédente interprétation sur les deux composantes principales. En effet le graphique des individus montrent d'une part les Parcelles 16 et 12 qui sont représentées à droite du premier axe et à l'opposé les individus 40, 13 et 28. Leurs données brutes montrent une grande différence au niveau du nombre moyen de strate.   
+Rappelons que le nombre moyen de strate est fortement corrélé avec le Nombre de Pins, la Densité et la hauteur des arbres dominant. Donc l'augmentation du nombre de strate entraînera une augmentation de ces derniers.   
+
+```{r echo=FALSE, eval=FALSE}
+chenilles[c(16,12,40,13,28),]%>%
+  kable(booktab = T) %>%
+  kable_styling() %>%
+  group_rows("Quadrant Gauche", 1, 2) %>%
+  group_rows("Quadrant droite", 3, 5)
+```
+
+
+
+## Interprétation dans l'espace des variables
+```{r echo=FALSE, message=FALSE}
+# Code pour synthétiser les diférentes valeurs des individus
+# Ce code est dispensable
+
+var_coord1 <- as.data.frame(res.acp$var$coord)[1:3]
+var_coord1 <- var_coord1[order(var_coord1$Dim.1, decreasing = T), ]
+var_coord1$row <- rownames(var_coord1)
+var_cord1 <- var_coord1[,c(1,4)]
+
+
+var_contrib1 <- as.data.frame(res.acp$var$contrib)[1:3]
+var_contrib1 <- var_contrib1[order(var_contrib1$Dim.1, decreasing = T), ]
+var_contrib1$row <- rownames(var_contrib1)
+var_cotrib1 <- var_contrib1[, c(1, 4)]
+
+var_cos1 <- as.data.frame(res.acp$var$cos2)[1:3]
+var_cos1 <- var_cos1[order(var_cos1$Dim.1, decreasing = T), ]
+var_cos1$row <- rownames(var_cos1)
+var_co1 <- var_cos1[, c(1, 4)]
+
+
+
+var_coord2 <- as.data.frame(res.acp$var$coord)[1:3]
+var_coord2 <- var_coord2[order(var_coord2$Dim.2, decreasing = T), ]
+var_coord2$row <- rownames(var_coord2)
+var_cord2 <- var_coord2[, c(2, 4)]
+
+
+var_contrib2 <- as.data.frame(res.acp$var$contrib)[1:3]
+var_contrib2 <- var_contrib2[order(var_contrib2$Dim.2, decreasing = T), ]
+var_contrib2$row <- rownames(var_contrib2)
+var_cotrib2 <- var_contrib2[, c(2, 4)]
+
+var_cos2 <- as.data.frame(res.acp$var$cos2)[1:3]
+var_cos2 <- var_cos2[order(var_cos2$Dim.2, decreasing = T), ]
+var_cos2$row <- rownames(var_cos2)
+var_co2 <- var_cos2[, c(2, 4)]
+
+
+resu <- full_join(var_cord1,var_cotrib1, by="row") %>%
+        full_join(var_co1, by="row")  %>%
+        full_join(var_cord2, by="row") %>% 
+        full_join(var_cotrib2, by="row") %>%
+        full_join(var_co2, by="row")
+
+
+rownames(resu) <- resu$row
+
+resume <- resu[, c(1, 3:7)]
+colnames(resume) <- c("Coord.1", "Contrib.1", "Cos2.1",
+                      "Coord.2", "Contrib.2", "Cos2.2")
+
+resume  %>%
+  kable(longtable = TRUE, 
+      booktabs = TRUE, caption = "Résultats ACP") %>% 
+  add_header_above(c("Variables ", "Axe 1" = 3, "Axe 2" = 3)) %>% 
+  kable_styling(latex_options = c("repeat_header"))
+```
+
+
+### Cercle des corrélations
+```{r fig.align="center"}
+fviz_pca_var(res.acp, col.var = "cos2", repel = TRUE,
+             gradient.cols = c("#00AFBB", "#E7B800","#FC4E07"))
+```
+
+
+
+## Classification
+
+```{r echo=FALSE, message=FALSE}
+normalise <- scale(chenilles_actives)
+distance <- dist(normalise, method = "euclidean") 
+arbre <- hcut(distance, method = "ward.D2", k=3) 
+
+inertie <- sort(arbre$height, decreasing = TRUE)
+
+plot(inertie[1:20], type = "s", main = "Saut d'inertie du dendogramme",
+     xlab = "Nombre de classes", ylab = "Inertie")
+points(c(2, 3, 4), inertie[c(2, 3, 4)], 
+       col = c("green3", "red3", "blue3"), 
+       cex = 2, lwd = 3)
+```
+
+         
+```{r echo=FALSE, message=FALSE}
+fviz_dend(arbre, cex=.5)
+```
+   
+
+
+```{r}
+sub_grp <- cutree(arbre, k = 3) 
+fviz_cluster(list(data = normalise, cluster = sub_grp))
+```
+ 
+
+## Estimation
+
+
+```{r}
+reg <- lm(NbNi ~ ., data = chenilles)
+
+par(mfrow=c(2,2))
+plot(reg)
+```
+
+
+
+##### Modèle log-niveau
+```{r}
+reg_log_nid <- lm(log(NbNi)~., data = chenilles)
+par(mfrow=c(2,2))
+plot(reg_log_nid)
+```
+
+
+```{r}
+# Espèrence des erreurs
+mean(reg_log_nid$residuals) 
+
+# Test d'homoscédasticité
+bptest(reg_log_nid)  
+```
+
+
+```{r}
+summary(reg_log_nid)
+```
+
+
+  
+```{r}
+# La fonction step() permet de sélectionner les variables explicatives 
+# pertinentes (sur la base de leur significativité) pour estimer le modèle. 
+step(reg_log_nid)
+```
+
+
+##### Amélioration du modèle
+```{r}
+reg2_log_nid <- lm(formula = log(NbNi) ~ Alti + Pent + Dens + Stra, data = chenilles)
+summary(reg2_log_nid)
+```
+
+   
+
+
+
+## Annexe
+
+### Contribution des individus
+```{r}
+c1 <- fviz_contrib(res.acp, choice = "ind", axes = 1)
+c2 <- fviz_contrib(res.acp, choice = "ind", axes = 2)
+grid.arrange(c1, c2, nrow = 2)
+```
+
+
+
+### Qualité de représentation des individus
+```{r}
+axe1 <- fviz_cos2(res.acp, choice = "ind", axes = 1, top = 20)
+axe2 <- fviz_cos2(res.acp, choice = "ind", axes = 2, top = 20)
+grid.arrange(axe1, axe2, nrow = 2)
+```
+
+
+### Compraison des deux cotés par rapport à l'axe 1
+
+```{r echo=FALSE, eval=FALSE}
+### Compraison des deux cotés par rapport à l'axe 1
+rows_axe1_droit <- c(12,16,33,49,20,11,48,47)
+rows_axe1_gauche <- c(13,3,6,40,28,41,29,35,9,1,15,42)
+
+chenilles[c(rows_axe1_droit, rows_axe1_gauche),] %>%
+  kable(caption = "Axe 1", 
+        booktabs = T, longtable = TRUE) %>%
+  kable_styling(position = "center",
+                latex_options = c("striped", "hold_position")) %>%
+  group_rows("Quadrant Droite", 1, 8) %>%
+  group_rows("Quadrant Gauche", 9, 20)
+```
+
+
+
+
+
+```{r echo=FALSE, eval=FALSE}
+### Comparaison des deux cotés par rapport à l'axe 2
+rows_axe2_haut <- c(31,23,2,26,8,14,55,15,6)
+rows_axe2_bas <- c(4,46,7,53,30,35,41,36,57,3,47)
+
+chenilles[c(rows_axe2_haut, rows_axe2_bas), ] %>%
+  kable(caption = "Axe 2", 
+        booktabs = T, longtable = TRUE) %>%
+  kable_styling(position = "center",
+                latex_options = c("striped", "hold_position")) %>%
+group_rows("Quadrant supérieur", 1, 9) %>%
+group_rows("Quadrant inférieur", 10, 20)
+```
+
+### Plan factoriel axes 1 et 3
+```{r fig.height=4}
+fviz_pca_ind (res.acp, col.ind = "cos2", repel = TRUE,
+             axes = c(1,3), gradient.cols = c("#00AFBB", "#E7B800","#FC4E07"))
+```
+
+### Plan factoriel axes 2 et 3
+```{r fig.height=4}
+fviz_pca_ind (res.acp, col.ind = "cos2", repel = TRUE,
+             axes = c(2,3), gradient.cols = c("#00AFBB", "#E7B800","#FC4E07"))
+```
+
+
+
+### Cercle de corrélation axes 1 et 3
+```{r fig.align="center"}
+fviz_pca_var(res.acp, col.var = "cos2", repel = TRUE,
+             axes= c(1,3),gradient.cols = c("#00AFBB", "#E7B800","#FC4E07"))
+```
+
+### Cercle de corrélation axes 2 et 3
+```{r fig.align="center"}
+fviz_pca_var(res.acp, col.var = "cos2", repel = TRUE,
+             axes=c(2,3), gradient.cols = c("#00AFBB", "#E7B800","#FC4E07"))
+```
+
+
+
+```{r echo=FALSE, eval=FALSE}
+### Classification
+class1 <- c(32,11,52,51,54,43,50,7,46)
+class2 <- c(14,6,15,31,23,26,18,2,56,1,37,42)
+class3 <- c(40,44,41,3,35,13,9,29,19,28)
+
+chenilles[c(class1,class2,class3),] %>%
+  kable(caption = "Classification", 
+        booktabs = T, longtable = TRUE) %>%
+  kable_styling(position = "center",
+                latex_options = c("striped", "hold_position")) %>%
+  group_rows("Class 1", 1, 9) %>%
+  group_rows("Classe 2", 10, 21) %>%
+  group_rows("Classe 3", 22, 31) 
+```
+
